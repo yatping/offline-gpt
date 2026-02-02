@@ -2,6 +2,7 @@ import { File, Paths } from 'expo-file-system';
 import { initLlama, LlamaContext } from 'llama.rn';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import TextRecognition from 'react-native-text-recognition';
 
 // Language codes for TranslateGemma
 const LANGUAGE_CODES: Record<string, string> = {
@@ -183,6 +184,75 @@ ${text}<end_of_turn>
     []
   );
 
+  // Translate image (extract and translate text from image)
+  const translateImage = useCallback(
+    async (
+      imageUri: string,
+      sourceLanguage: string,
+      targetLanguage: string,
+      onPartialResult?: (partial: string) => void
+    ): Promise<{ extractedText: string; translatedText: string }> => {
+      if (!contextRef.current) {
+        throw new Error('Model not initialized');
+      }
+
+      setStatus('translating');
+
+      try {
+        // Step 1: Extract text from image using OCR
+        console.log('Extracting text from image:', imageUri);
+        const result = await TextRecognition.recognize(imageUri);
+        
+        console.log('OCR raw result:', result);
+        
+        // Convert result to string, handling all possible types
+        let extractedText: string;
+        
+        if (Array.isArray(result)) {
+          // If it's an array of strings, join them
+          extractedText = result.join('\n');
+        } else if (typeof result === 'string') {
+          extractedText = result;
+        } else if (result && typeof result === 'object' && 'text' in result) {
+          extractedText = String(result.text);
+        } else {
+          extractedText = String(result || '');
+        }
+        
+        console.log('Converted to string:', extractedText);
+        console.log('String type check:', typeof extractedText);
+        
+        if (!extractedText || extractedText.trim().length === 0) {
+          setStatus('ready');
+          return {
+            extractedText: 'No text found in image',
+            translatedText: '',
+          };
+        }
+
+        // Step 2: Translate the extracted text
+        const translatedText = await translate(
+          extractedText,
+          sourceLanguage,
+          targetLanguage,
+          onPartialResult
+        );
+
+        setStatus('ready');
+        return {
+          extractedText,
+          translatedText,
+        };
+      } catch (err) {
+        console.error('Image translation error:', err);
+        setError(err instanceof Error ? err.message : 'Image translation failed');
+        setStatus('error');
+        throw err;
+      }
+    },
+    [translate]
+  );
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -199,6 +269,7 @@ ${text}<end_of_turn>
     progress,
     initializeModel,
     translate,
+    translateImage,
     isReady: status === 'ready',
     isLoading: status === 'loading',
     isTranslating: status === 'translating',
