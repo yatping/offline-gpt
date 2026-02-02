@@ -1,98 +1,338 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors } from '@/constants/theme';
+import { useTranslationContext } from '@/contexts/translation-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export default function HomeScreen() {
+const LANGUAGES = [
+  { code: 'en', name: 'English' },
+  { code: 'es', name: 'Spanish' },
+  { code: 'fr', name: 'French' },
+  { code: 'de', name: 'German' },
+  { code: 'it', name: 'Italian' },
+  { code: 'pt', name: 'Portuguese' },
+  { code: 'zh', name: 'Chinese' },
+  { code: 'ja', name: 'Japanese' },
+  { code: 'ko', name: 'Korean' },
+];
+
+export default function TranslateScreen() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  
+  const [sourceLanguage, setSourceLanguage] = useState(LANGUAGES[0]);
+  const [targetLanguage, setTargetLanguage] = useState(LANGUAGES[1]);
+  const [sourceText, setSourceText] = useState('');
+  const [translatedText, setTranslatedText] = useState('');
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
+  const [showTargetPicker, setShowTargetPicker] = useState(false);
+
+  const {
+    status,
+    error,
+    translate,
+    isReady,
+    isTranslating,
+  } = useTranslationContext();
+
+  // Translate when source text changes (with debounce)
+  useEffect(() => {
+    if (!isReady || !sourceText.trim()) {
+      if (!sourceText.trim()) {
+        setTranslatedText('');
+      }
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        await translate(
+          sourceText,
+          sourceLanguage.code,
+          targetLanguage.code,
+          (partial) => {
+            setTranslatedText(partial);
+          }
+        );
+      } catch (err) {
+        console.error('Translation failed:', err);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [sourceText, sourceLanguage.code, targetLanguage.code, isReady, translate]);
+
+  const swapLanguages = useCallback(() => {
+    const tempLang = sourceLanguage;
+    setSourceLanguage(targetLanguage);
+    setTargetLanguage(tempLang);
+    const tempText = sourceText;
+    setSourceText(translatedText);
+    setTranslatedText(tempText);
+  }, [sourceLanguage, targetLanguage, sourceText, translatedText]);
+
+  const LanguagePicker = ({
+    visible,
+    onSelect,
+    onClose,
+  }: {
+    visible: boolean;
+    onSelect: (lang: typeof LANGUAGES[0]) => void;
+    onClose: () => void;
+  }) => {
+    if (!visible) return null;
+
+    return (
+      <View style={[styles.pickerOverlay, { backgroundColor: colors.background }]}>
+        <ScrollView style={styles.pickerScroll}>
+          {LANGUAGES.map((lang) => (
+            <TouchableOpacity
+              key={lang.code}
+              style={[styles.pickerItem, { borderBottomColor: colors.icon + '30' }]}
+              onPress={() => {
+                onSelect(lang);
+                onClose();
+              }}>
+              <ThemedText style={styles.pickerItemText}>{lang.name}</ThemedText>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <TouchableOpacity style={styles.pickerClose} onPress={onClose}>
+          <ThemedText style={{ color: colors.tint }}>Close</ThemedText>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <ThemedText type="title">Translate</ThemedText>
+        {error && (
+          <ThemedText style={[styles.errorText, { color: '#ff4444' }]}>
+            {error}
+          </ThemedText>
+        )}
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
+      {/* Source Section (Upper) */}
+      <ThemedView style={[styles.section, { borderColor: colors.icon + '30' }]}>
+        <TouchableOpacity
+          style={styles.languageSelector}
+          onPress={() => setShowSourcePicker(true)}>
+          <ThemedText style={[styles.languageText, { color: colors.tint }]}>
+            {sourceLanguage.name}
+          </ThemedText>
+          <IconSymbol name="chevron.down" size={16} color={colors.tint} />
+        </TouchableOpacity>
+
+        <TextInput
+          style={[
+            styles.textInput,
+            {
+              color: colors.text,
+              backgroundColor: colors.background,
+            },
+          ]}
+          placeholder="Enter text to translate..."
+          placeholderTextColor={colors.icon}
+          multiline
+          value={sourceText}
+          onChangeText={setSourceText}
+          textAlignVertical="top"
+        />
+
+        {sourceText.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={() => {
+              setSourceText('');
+              setTranslatedText('');
+            }}>
+            <IconSymbol name="xmark.circle.fill" size={20} color={colors.icon} />
+          </TouchableOpacity>
+        )}
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
+
+      {/* Swap Button */}
+      <View style={styles.swapContainer}>
+        <TouchableOpacity
+          style={[styles.swapButton, { backgroundColor: colors.tint }]}
+          onPress={swapLanguages}>
+          <IconSymbol name="arrow.up.arrow.down" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Target Section (Lower) */}
+      <ThemedView style={[styles.section, styles.targetSection, { borderColor: colors.icon + '30' }]}>
+        <TouchableOpacity
+          style={styles.languageSelector}
+          onPress={() => setShowTargetPicker(true)}>
+          <ThemedText style={[styles.languageText, { color: colors.tint }]}>
+            {targetLanguage.name}
+          </ThemedText>
+          <IconSymbol name="chevron.down" size={16} color={colors.tint} />
+        </TouchableOpacity>
+
+        <ScrollView style={styles.translatedTextContainer}>
+          {isTranslating && !translatedText && (
+            <View style={styles.translatingIndicator}>
+              <ActivityIndicator size="small" color={colors.tint} />
+              <ThemedText style={[styles.translatedText, { marginLeft: 8 }]}>
+                Translating...
+              </ThemedText>
+            </View>
+          )}
+          <ThemedText style={[styles.translatedText, !translatedText && { opacity: 0.5 }]}>
+            {translatedText || (isReady ? 'Translation will appear here...' : 'Loading model...')}
+          </ThemedText>
+        </ScrollView>
+
+        {translatedText.length > 0 && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.actionButton}>
+              <IconSymbol name="doc.on.doc" size={20} color={colors.tint} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton}>
+              <IconSymbol name="speaker.wave.2" size={20} color={colors.tint} />
+            </TouchableOpacity>
+          </View>
+        )}
       </ThemedView>
-    </ParallaxScrollView>
+
+      {/* Language Pickers */}
+      <LanguagePicker
+        visible={showSourcePicker}
+        onSelect={setSourceLanguage}
+        onClose={() => setShowSourcePicker(false)}
+      />
+      <LanguagePicker
+        visible={showTargetPicker}
+        onSelect={setTargetLanguage}
+        onClose={() => setShowTargetPicker(false)}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  section: {
+    flex: 1,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    position: 'relative',
+  },
+  targetSection: {
+    backgroundColor: 'transparent',
+  },
+  languageSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    marginBottom: 12,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  languageText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  textInput: {
+    flex: 1,
+    fontSize: 18,
+    lineHeight: 26,
+    padding: 0,
+  },
+  translatedTextContainer: {
+    flex: 1,
+  },
+  translatedText: {
+    fontSize: 18,
+    lineHeight: 26,
+    opacity: 0.8,
+  },
+  clearButton: {
     position: 'absolute',
+    top: 16,
+    right: 16,
+  },
+  swapContainer: {
+    alignItems: 'center',
+    marginVertical: -20,
+    zIndex: 10,
+  },
+  swapButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 12,
+  },
+  actionButton: {
+    padding: 8,
+  },
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
+    paddingTop: 60,
+  },
+  pickerScroll: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  pickerItem: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  pickerItemText: {
+    fontSize: 18,
+  },
+  pickerClose: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    marginTop: 8,
+  },
+  translatingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
 });
