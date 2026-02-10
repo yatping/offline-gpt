@@ -15,25 +15,11 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-const LANGUAGES = [
-  { code: 'en', name: 'English' },
-  { code: 'es', name: 'Spanish' },
-  { code: 'fr', name: 'French' },
-  { code: 'de', name: 'German' },
-  { code: 'it', name: 'Italian' },
-  { code: 'pt', name: 'Portuguese' },
-  { code: 'zh', name: 'Chinese' },
-  { code: 'ja', name: 'Japanese' },
-  { code: 'ko', name: 'Korean' },
-];
+import { LANGUAGES } from '@/utils/language-preferences';
 
 export default function TranslateScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  
-  const [sourceLanguage, setSourceLanguage] = useState(LANGUAGES[0]);
-  const [targetLanguage, setTargetLanguage] = useState(LANGUAGES[1]);
   const [sourceText, setSourceText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
   const [showSourcePicker, setShowSourcePicker] = useState(false);
@@ -45,6 +31,10 @@ export default function TranslateScreen() {
     translate,
     isReady,
     isTranslating,
+    sourceLanguage,
+    targetLanguage,
+    setSourceLanguage,
+    setTargetLanguage,
   } = useTranslationContext();
 
   // Translate when source text changes (with debounce)

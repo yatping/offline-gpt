@@ -1,5 +1,4 @@
 import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -11,18 +10,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-const LANGUAGES = [
-  { code: 'en', name: 'English' },
-  { code: 'es', name: 'Spanish' },
-  { code: 'fr', name: 'French' },
-  { code: 'de', name: 'German' },
-  { code: 'it', name: 'Italian' },
-  { code: 'pt', name: 'Portuguese' },
-  { code: 'zh', name: 'Chinese' },
-  { code: 'ja', name: 'Japanese' },
-  { code: 'ko', name: 'Korean' },
-];
+import { LANGUAGES } from '@/utils/language-preferences';
 
 export default function CameraScreen() {
   const colorScheme = useColorScheme();
@@ -34,11 +22,10 @@ export default function CameraScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
-  const [targetLanguage, setTargetLanguage] = useState(LANGUAGES[1]); // Default to Spanish
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [currentPage, setCurrentPage] = useState<'extract' | 'translate' | null>(null);
   const cameraRef = useRef<CameraView>(null);
-  const { translate, status, progress, error } = useTranslationContext();
+  const { translate, status, progress, error, targetLanguage, setTargetLanguage } = useTranslationContext();
 
   // Show error if model fails to load
   useEffect(() => {

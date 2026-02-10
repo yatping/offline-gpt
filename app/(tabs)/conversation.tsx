@@ -17,18 +17,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-const LANGUAGES = [
-  { code: 'en-US', name: 'English' },
-  { code: 'es-ES', name: 'Spanish' },
-  { code: 'fr-FR', name: 'French' },
-  { code: 'de-DE', name: 'German' },
-  { code: 'it-IT', name: 'Italian' },
-  { code: 'pt-PT', name: 'Portuguese' },
-  { code: 'zh-CN', name: 'Chinese' },
-  { code: 'ja-JP', name: 'Japanese' },
-  { code: 'ko-KR', name: 'Korean' },
-];
+import { SPEECH_LANGUAGES } from '@/utils/language-preferences';
 
 // Helper function to get locale code for speech recognition
 const getLocaleCode = (code: string): string => {
@@ -46,20 +35,25 @@ type Message = {
 export default function ConversationScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { translate, isReady } = useTranslationContext();
+  const { 
+    translate, 
+    isReady,
+    myLanguage: lowerLanguage,
+    opponentLanguage: upperLanguage,
+    setMyLanguage: setLowerLanguage,
+    setOpponentLanguage: setUpperLanguage,
+  } = useTranslationContext();
 
   // Shared message state - both sections see all messages but filter by speaker
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   
   // Upper section (opponent - upside down)
-  const [upperLanguage, setUpperLanguage] = useState(LANGUAGES[0]);
   const [isRecordingUpper, setIsRecordingUpper] = useState(false);
   const [showUpperLanguagePicker, setShowUpperLanguagePicker] = useState(false);
   const [currentUpperTranscript, setCurrentUpperTranscript] = useState('');
   const [pendingUpperText, setPendingUpperText] = useState('');
 
   // Lower section (user)
-  const [lowerLanguage, setLowerLanguage] = useState(LANGUAGES[1]);
   const [isRecordingLower, setIsRecordingLower] = useState(false);
   const [showLowerLanguagePicker, setShowLowerLanguagePicker] = useState(false);
   const [currentLowerTranscript, setCurrentLowerTranscript] = useState('');
@@ -252,7 +246,7 @@ export default function ConversationScreen() {
     onClose,
   }: {
     visible: boolean;
-    onSelect: (lang: typeof LANGUAGES[0]) => void;
+    onSelect: (lang: typeof SPEECH_LANGUAGES[0]) => void;
     onClose: () => void;
   }) => {
     if (!visible) return null;
@@ -260,7 +254,7 @@ export default function ConversationScreen() {
     return (
       <View style={[styles.pickerOverlay, { backgroundColor: colors.background }]}>
         <ScrollView style={styles.pickerScroll}>
-          {LANGUAGES.map((lang) => (
+          {SPEECH_LANGUAGES.map((lang) => (
             <TouchableOpacity
               key={lang.code}
               style={[styles.pickerItem, { borderBottomColor: colors.icon + '30' }]}
@@ -289,7 +283,7 @@ export default function ConversationScreen() {
     currentTranscript = '',
   }: {
     allMessages: Message[];
-    language: typeof LANGUAGES[0];
+    language: typeof SPEECH_LANGUAGES[0];
     onLanguagePress: () => void;
     onRecordPress: () => void;
     isRecording: boolean;
