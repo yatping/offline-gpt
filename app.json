@@ -13,7 +13,9 @@
       "bundleIdentifier": "com.dreamsai.offlinetranslate",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Camera is required to scan and take pictures."
+        "NSCameraUsageDescription": "Camera is required to scan and take pictures.",
+        "NSMicrophoneUsageDescription": "Microphone is required for speech recognition.",
+        "NSSpeechRecognitionUsageDescription": "Speech recognition is required to translate conversations."
       }
     },
     "android": {
@@ -57,7 +59,8 @@
           "forceCxx20": true,
           "enableOpenCLAndHexagon": true
         }
-      ]
+      ],
+      "expo-speech-recognition"
     ],
     "experiments": {
       "typedRoutes": true,
