@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -85,7 +87,7 @@ export default function TranslateScreen() {
     if (!visible) return null;
 
     return (
-      <View style={[styles.pickerOverlay, { backgroundColor: colors.background }]}>
+      <View style={[styles.pickerOverlay, { backgroundColor: colors.background }]} onTouchEnd={onClose}>
         <ScrollView style={styles.pickerScroll}>
           {LANGUAGES.map((lang) => (
             <TouchableOpacity
@@ -107,22 +109,26 @@ export default function TranslateScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <ThemedText type="title">Translate</ThemedText>
-        {error && (
-          <ThemedText style={[styles.errorText, { color: '#ff4444' }]}>
-            {error}
-          </ThemedText>
-        )}
-      </View>
+    <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss} accessible={false}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        {/* Header */}
+        <View style={styles.header}>
+          <ThemedText type="title">Translate</ThemedText>
+          {error && (
+            <ThemedText style={[styles.errorText, { color: '#ff4444' }]}>
+              {error}
+            </ThemedText>
+          )}
+        </View>
 
       {/* Source Section (Upper) */}
-      <ThemedView style={[styles.section, { borderColor: colors.icon + '30' }]}>
+      <ThemedView style={[styles.section, { borderColor: colors.icon + '30', backgroundColor: '#fff' }]}>
         <TouchableOpacity
           style={styles.languageSelector}
-          onPress={() => setShowSourcePicker(true)}>
+          onPress={() => {
+            Keyboard.dismiss();
+            setShowSourcePicker(true);
+          }}>
           <ThemedText style={[styles.languageText, { color: colors.tint }]}>
             {sourceLanguage.name}
           </ThemedText>
@@ -134,7 +140,7 @@ export default function TranslateScreen() {
             styles.textInput,
             {
               color: colors.text,
-              backgroundColor: colors.background,
+              backgroundColor: '#fff',
             },
           ]}
           placeholder="Enter text to translate..."
@@ -167,10 +173,13 @@ export default function TranslateScreen() {
       </View>
 
       {/* Target Section (Lower) */}
-      <ThemedView style={[styles.section, styles.targetSection, { borderColor: colors.icon + '30' }]}>
+      <ThemedView style={[styles.section, styles.targetSection, { borderColor: colors.icon + '30', backgroundColor: '#fff' }]}>
         <TouchableOpacity
           style={styles.languageSelector}
-          onPress={() => setShowTargetPicker(true)}>
+          onPress={() => {
+            Keyboard.dismiss();
+            setShowTargetPicker(true);
+          }}>
           <ThemedText style={[styles.languageText, { color: colors.tint }]}>
             {targetLanguage.name}
           </ThemedText>
@@ -214,7 +223,8 @@ export default function TranslateScreen() {
         onSelect={setTargetLanguage}
         onClose={() => setShowTargetPicker(false)}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+    </Pressable>
   );
 }
 

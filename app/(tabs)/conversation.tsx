@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -298,7 +299,7 @@ export default function ConversationScreen() {
       <ThemedView
         style={[
           styles.chatSection,
-          { borderColor: colors.icon + '30' },
+          { borderColor: colors.icon + '30', backgroundColor: '#fff' },
           isUpsideDown && styles.upsideDown,
         ]}>
         {/* Controls */}
@@ -393,7 +394,7 @@ export default function ConversationScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Upper Section - Upside Down for Opponent */}
       <ChatSection
         allMessages={allMessages}
@@ -430,7 +431,7 @@ export default function ConversationScreen() {
         onSelect={setLowerLanguage}
         onClose={() => setShowLowerLanguagePicker(false)}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
