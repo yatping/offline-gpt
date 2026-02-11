@@ -29,7 +29,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.dreamsai.offlinetranslate",
       "permissions": [
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "com.android.vending.BILLING"
       ]
     },
     "web": {
