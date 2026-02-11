@@ -42,10 +42,10 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   const [myLanguage, setMyLanguageState] = useState<SpeechLanguage>(DEFAULT_MY_LANGUAGE);
   const [opponentLanguage, setOpponentLanguageState] = useState<SpeechLanguage>(DEFAULT_OPPONENT_LANGUAGE);
 
-  // Initialize the model once when the provider mounts
-  useEffect(() => {
-    translation.initializeModel();
-  }, [translation.initializeModel]);
+  // Don't initialize the model automatically - let components trigger it when needed
+  // useEffect(() => {
+  //   translation.initializeModel();
+  // }, [translation.initializeModel]);
 
   // Load saved language preferences on mount
   useEffect(() => {

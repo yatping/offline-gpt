@@ -30,7 +30,7 @@ function AppContent() {
         <View style={[styles.overlay, { backgroundColor: colors.background }]}>
           <ActivityIndicator size="large" color={colors.tint} />
           <ThemedText style={styles.overlayTitle}>
-            {isDownloading ? 'Downloading the AI Model...' : 'Loading the AI Model...'}
+            {isDownloading ? 'Downloading AI Translation Model...' : 'Loading AI Translation Model...'}
           </ThemedText>
           {isDownloading && (
             <ThemedText style={styles.overlaySubtext}>

@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
-  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,216 +15,274 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
-import { useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { LANGUAGES } from '@/utils/language-preferences';
 
-export default function TranslateScreen() {
+type ChatMessage = {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  timestamp: Date;
+};
+
+type ChatSession = {
+  id: string;
+  title: string;
+  lastMessage: string;
+  timestamp: Date;
+  messages: ChatMessage[];
+};
+
+export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [sourceText, setSourceText] = useState('');
-  const [translatedText, setTranslatedText] = useState('');
-  const [showSourcePicker, setShowSourcePicker] = useState(false);
-  const [showTargetPicker, setShowTargetPicker] = useState(false);
+  
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [inputText, setInputText] = useState('');
+  const [sessions, setSessions] = useState<ChatSession[]>([
+    {
+      id: '1',
+      title: 'Translation Help',
+      lastMessage: 'How do I say hello in Spanish?',
+      timestamp: new Date(Date.now() - 3600000),
+      messages: [
+        {
+          id: '1',
+          content: 'How do I say hello in Spanish?',
+          role: 'user',
+          timestamp: new Date(Date.now() - 3600000),
+        },
+        {
+          id: '2',
+          content: 'In Spanish, you can say "Hola" for hello.',
+          role: 'assistant',
+          timestamp: new Date(Date.now() - 3590000),
+        },
+      ],
+    },
+  ]);
+  const [currentSessionId, setCurrentSessionId] = useState('1');
 
-  const {
-    status,
-    error,
-    translate,
-    isReady,
-    isTranslating,
-    sourceLanguage,
-    targetLanguage,
-    setSourceLanguage,
-    setTargetLanguage,
-  } = useTranslationContext();
+  const currentSession = sessions.find(s => s.id === currentSessionId);
 
-  // Translate when source text changes (with debounce)
-  useEffect(() => {
-    if (!isReady || !sourceText.trim()) {
-      if (!sourceText.trim()) {
-        setTranslatedText('');
+  const handleSend = () => {
+    if (!inputText.trim() || !currentSession) return;
+
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      content: inputText,
+      role: 'user',
+      timestamp: new Date(),
+    };
+
+    const updatedSessions = sessions.map(session => {
+      if (session.id === currentSessionId) {
+        return {
+          ...session,
+          messages: [...session.messages, newMessage],
+          lastMessage: inputText,
+          timestamp: new Date(),
+        };
       }
-      return;
+      return session;
+    });
+
+    setSessions(updatedSessions);
+    setInputText('');
+
+    // Simulate AI response
+    setTimeout(() => {
+      const aiResponse: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: 'This is a placeholder response. In a real app, this would be connected to an AI service.',
+        role: 'assistant',
+        timestamp: new Date(),
+      };
+
+      setSessions(prev => prev.map(session => {
+        if (session.id === currentSessionId) {
+          return {
+            ...session,
+            messages: [...session.messages, aiResponse],
+            lastMessage: aiResponse.content,
+            timestamp: new Date(),
+          };
+        }
+        return session;
+      }));
+    }, 1000);
+  };
+
+  const createNewChat = () => {
+    const newSession: ChatSession = {
+      id: Date.now().toString(),
+      title: 'New Chat',
+      lastMessage: '',
+      timestamp: new Date(),
+      messages: [],
+    };
+    setSessions([newSession, ...sessions]);
+    setCurrentSessionId(newSession.id);
+    setShowSidebar(false);
+  };
+
+  const deleteSession = (sessionId: string) => {
+    const filtered = sessions.filter(s => s.id !== sessionId);
+    setSessions(filtered);
+    if (currentSessionId === sessionId && filtered.length > 0) {
+      setCurrentSessionId(filtered[0].id);
     }
-
-    const timeoutId = setTimeout(async () => {
-      try {
-        await translate(
-          sourceText,
-          sourceLanguage.code,
-          targetLanguage.code,
-          (partial) => {
-            setTranslatedText(partial);
-          }
-        );
-      } catch (err) {
-        console.error('Translation failed:', err);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [sourceText, sourceLanguage.code, targetLanguage.code, isReady, translate]);
-
-  const swapLanguages = useCallback(() => {
-    const tempLang = sourceLanguage;
-    setSourceLanguage(targetLanguage);
-    setTargetLanguage(tempLang);
-    const tempText = sourceText;
-    setSourceText(translatedText);
-    setTranslatedText(tempText);
-  }, [sourceLanguage, targetLanguage, sourceText, translatedText]);
-
-  const LanguagePicker = ({
-    visible,
-    onSelect,
-    onClose,
-  }: {
-    visible: boolean;
-    onSelect: (lang: typeof LANGUAGES[0]) => void;
-    onClose: () => void;
-  }) => {
-    if (!visible) return null;
-
-    return (
-      <View style={[styles.pickerOverlay, { backgroundColor: colors.background }]} onTouchEnd={onClose}>
-        <ScrollView style={styles.pickerScroll}>
-          {LANGUAGES.map((lang) => (
-            <TouchableOpacity
-              key={lang.code}
-              style={[styles.pickerItem, { borderBottomColor: colors.icon + '30' }]}
-              onPress={() => {
-                onSelect(lang);
-                onClose();
-              }}>
-              <ThemedText style={styles.pickerItemText}>{lang.name}</ThemedText>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <TouchableOpacity style={styles.pickerClose} onPress={onClose}>
-          <ThemedText style={{ color: colors.tint }}>Close</ThemedText>
-        </TouchableOpacity>
-      </View>
-    );
   };
 
   return (
-    <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss} accessible={false}>
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-        {/* Header */}
-        <View style={styles.header}>
-          <ThemedText type="title">Translate</ThemedText>
-          {error && (
-            <ThemedText style={[styles.errorText, { color: '#ff4444' }]}>
-              {error}
-            </ThemedText>
-          )}
-        </View>
-
-      {/* Source Section (Upper) */}
-      <ThemedView style={[styles.section, { borderColor: colors.icon + '30', backgroundColor: '#fff' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={styles.header}>
         <TouchableOpacity
-          style={styles.languageSelector}
-          onPress={() => {
-            Keyboard.dismiss();
-            setShowSourcePicker(true);
-          }}>
-          <ThemedText style={[styles.languageText, { color: colors.tint }]}>
-            {sourceLanguage.name}
-          </ThemedText>
-          <IconSymbol name="chevron.down" size={16} color={colors.tint} />
+          style={styles.menuButton}
+          onPress={() => setShowSidebar(!showSidebar)}>
+          <IconSymbol name="line.3.horizontal" size={24} color={colors.text} />
         </TouchableOpacity>
-
-        <TextInput
-          style={[
-            styles.textInput,
-            {
-              color: colors.text,
-              backgroundColor: '#fff',
-            },
-          ]}
-          placeholder="Enter text to translate..."
-          placeholderTextColor={colors.icon}
-          multiline
-          value={sourceText}
-          onChangeText={setSourceText}
-          textAlignVertical="top"
-        />
-
-        {sourceText.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => {
-              setSourceText('');
-              setTranslatedText('');
-            }}>
-            <IconSymbol name="xmark.circle.fill" size={20} color={colors.icon} />
-          </TouchableOpacity>
-        )}
-      </ThemedView>
-
-      {/* Swap Button */}
-      <View style={styles.swapContainer}>
-        <TouchableOpacity
-          style={[styles.swapButton, { backgroundColor: colors.tint }]}
-          onPress={swapLanguages}>
-          <IconSymbol name="arrow.up.arrow.down" size={20} color="#fff" />
+        <ThemedText style={styles.headerTitle}>
+          {currentSession?.title || 'Chat'}
+        </ThemedText>
+        <TouchableOpacity style={styles.newChatButton} onPress={createNewChat}>
+          <IconSymbol name="square.and.pencil" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Target Section (Lower) */}
-      <ThemedView style={[styles.section, styles.targetSection, { borderColor: colors.icon + '30', backgroundColor: '#fff' }]}>
-        <TouchableOpacity
-          style={styles.languageSelector}
-          onPress={() => {
-            Keyboard.dismiss();
-            setShowTargetPicker(true);
-          }}>
-          <ThemedText style={[styles.languageText, { color: colors.tint }]}>
-            {targetLanguage.name}
-          </ThemedText>
-          <IconSymbol name="chevron.down" size={16} color={colors.tint} />
-        </TouchableOpacity>
-
-        <ScrollView style={styles.translatedTextContainer}>
-          {isTranslating && !translatedText && (
-            <View style={styles.translatingIndicator}>
-              <ActivityIndicator size="small" color={colors.tint} />
-              <ThemedText style={[styles.translatedText, { marginLeft: 8 }]}>
-                Translating...
-              </ThemedText>
+      <View style={styles.content}>
+        {/* Sidebar */}
+        {showSidebar && (
+          <>
+            <Pressable
+              style={styles.overlay}
+              onPress={() => setShowSidebar(false)}
+            />
+            <View style={[styles.sidebar, { backgroundColor: colors.background, borderRightColor: colors.icon + '30' }]}>
+              <View style={styles.sidebarHeader}>
+                <ThemedText style={styles.sidebarTitle}>Chat History</ThemedText>
+                <TouchableOpacity onPress={createNewChat}>
+                  <IconSymbol name="plus.circle.fill" size={28} color={colors.tint} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.sessionList}>
+                {sessions.map((session) => (
+                  <TouchableOpacity
+                    key={session.id}
+                    style={[
+                      styles.sessionItem,
+                      { 
+                        backgroundColor: session.id === currentSessionId ? colors.tint + '20' : 'transparent',
+                        borderBottomColor: colors.icon + '20',
+                      },
+                    ]}
+                    onPress={() => {
+                      setCurrentSessionId(session.id);
+                      setShowSidebar(false);
+                    }}>
+                    <View style={styles.sessionInfo}>
+                      <ThemedText style={styles.sessionTitle} numberOfLines={1}>
+                        {session.title}
+                      </ThemedText>
+                      <ThemedText style={[styles.sessionPreview, { color: colors.icon }]} numberOfLines={1}>
+                        {session.lastMessage || 'No messages yet'}
+                      </ThemedText>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => deleteSession(session.id)}>
+                      <IconSymbol name="trash" size={18} color={colors.icon} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
-          )}
-          <ThemedText style={[styles.translatedText, !translatedText && { opacity: 0.5 }]}>
-            {translatedText || (isReady ? 'Translation will appear here...' : 'Loading model...')}
-          </ThemedText>
-        </ScrollView>
+          </>
+        )}
 
-        {translatedText.length > 0 && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton}>
-              <IconSymbol name="doc.on.doc" size={20} color={colors.tint} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <IconSymbol name="speaker.wave.2" size={20} color={colors.tint} />
+        {/* Main Chat Area */}
+        <KeyboardAvoidingView
+          style={styles.chatArea}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={90}>
+          <ScrollView style={styles.messagesContainer} contentContainerStyle={styles.messagesContent}>
+            {currentSession?.messages.length === 0 ? (
+              <View style={styles.emptyState}>
+                <IconSymbol name="message" size={64} color={colors.icon + '40'} />
+                <ThemedText style={[styles.emptyText, { color: colors.icon }]}>
+                  Start a conversation
+                </ThemedText>
+                <ThemedText style={[styles.emptySubtext, { color: colors.icon }]}>
+                  Type a message below to begin
+                </ThemedText>
+              </View>
+            ) : (
+              currentSession?.messages.map((message) => (
+                <View
+                  key={message.id}
+                  style={[
+                    styles.messageWrapper,
+                    message.role === 'user' ? styles.userMessageWrapper : styles.assistantMessageWrapper,
+                  ]}>
+                  <ThemedView
+                    style={[
+                      styles.messageBubble,
+                      message.role === 'user'
+                        ? { backgroundColor: colors.tint }
+                        : { backgroundColor: colors.icon + '20' },
+                    ]}>
+                    <ThemedText
+                      style={[
+                        styles.messageText,
+                        message.role === 'user' && { color: '#fff' },
+                      ]}>
+                      {message.content}
+                    </ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.messageTime,
+                        { color: message.role === 'user' ? '#fff' : colors.icon },
+                        message.role === 'user' && { opacity: 0.8 },
+                      ]}>
+                      {message.timestamp.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </ThemedText>
+                  </ThemedView>
+                </View>
+              ))
+            )}
+          </ScrollView>
+
+          <View style={[styles.inputContainer, { backgroundColor: colors.background, borderTopColor: colors.icon + '30' }]}>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  color: colors.text,
+                  backgroundColor: colors.icon + '10',
+                },
+              ]}
+              placeholder="Type a message..."
+              placeholderTextColor={colors.icon}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={1000}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                { backgroundColor: inputText.trim() ? colors.tint : colors.icon + '40' },
+              ]}
+              onPress={handleSend}
+              disabled={!inputText.trim()}>
+              <IconSymbol name="arrow.up" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
-        )}
-      </ThemedView>
-
-      {/* Language Pickers */}
-      <LanguagePicker
-        visible={showSourcePicker}
-        onSelect={setSourceLanguage}
-        onClose={() => setShowSourcePicker(false)}
-      />
-      <LanguagePicker
-        visible={showTargetPicker}
-        onSelect={setTargetLanguage}
-        onClose={() => setShowTargetPicker(false)}
-      />
-      </SafeAreaView>
-    </Pressable>
+        </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -233,106 +291,149 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  section: {
-    flex: 1,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    position: 'relative',
-  },
-  targetSection: {
-    backgroundColor: 'transparent',
-  },
-  languageSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  languageText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 18,
-    lineHeight: 26,
-    padding: 0,
-  },
-  translatedTextContainer: {
-    flex: 1,
-  },
-  translatedText: {
-    fontSize: 18,
-    lineHeight: 26,
-    opacity: 0.8,
-  },
-  clearButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-  },
-  swapContainer: {
-    alignItems: 'center',
-    marginVertical: -20,
-    zIndex: 10,
-  },
-  swapButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 12,
-  },
-  actionButton: {
+  menuButton: {
     padding: 8,
   },
-  pickerOverlay: {
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+  },
+  newChatButton: {
+    padding: 8,
+  },
+  content: {
+    flex: 1,
+    position: 'relative',
+  },
+  overlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 100,
-    paddingTop: 60,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 9,
   },
-  pickerScroll: {
+  sidebar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: '75%',
+    maxWidth: 300,
+    borderRightWidth: 1,
+    zIndex: 10,
+  },
+  sidebarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  sidebarTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  sessionList: {
     flex: 1,
-    paddingHorizontal: 20,
   },
-  pickerItem: {
-    paddingVertical: 16,
+  sessionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
     borderBottomWidth: 1,
   },
-  pickerItemText: {
-    fontSize: 18,
+  sessionInfo: {
+    flex: 1,
   },
-  pickerClose: {
-    padding: 20,
+  sessionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  sessionPreview: {
+    fontSize: 14,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  chatArea: {
+    flex: 1,
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: 16,
+    flexGrow: 1,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 60,
   },
-  errorText: {
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 16,
+  },
+  emptySubtext: {
     fontSize: 14,
     marginTop: 8,
   },
-  translatingIndicator: {
+  messageWrapper: {
+    marginBottom: 12,
+  },
+  userMessageWrapper: {
+    alignItems: 'flex-end',
+  },
+  assistantMessageWrapper: {
+    alignItems: 'flex-start',
+  },
+  messageBubble: {
+    maxWidth: '80%',
+    padding: 12,
+    borderRadius: 16,
+  },
+  messageText: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  messageTime: {
+    fontSize: 11,
+    marginTop: 4,
+  },
+  inputContainer: {
     flexDirection: 'row',
+    padding: 12,
+    gap: 12,
+    borderTopWidth: 1,
+  },
+  input: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 24,
+    fontSize: 16,
+    maxHeight: 100,
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
 });
+
