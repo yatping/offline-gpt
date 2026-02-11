@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,6 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useChatAI } from '@/hooks/use-chat-ai';
 
 type ChatMessage = {
   id: string;
@@ -36,80 +38,170 @@ export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   
+  const {
+    status,
+    error,
+    progress,
+    initializeModel,
+    generateResponse,
+    isReady,
+    isGenerating,
+  } = useChatAI();
+  
   const [showSidebar, setShowSidebar] = useState(false);
   const [inputText, setInputText] = useState('');
   const [sessions, setSessions] = useState<ChatSession[]>([
     {
       id: '1',
-      title: 'Translation Help',
-      lastMessage: 'How do I say hello in Spanish?',
-      timestamp: new Date(Date.now() - 3600000),
-      messages: [
-        {
-          id: '1',
-          content: 'How do I say hello in Spanish?',
-          role: 'user',
-          timestamp: new Date(Date.now() - 3600000),
-        },
-        {
-          id: '2',
-          content: 'In Spanish, you can say "Hola" for hello.',
-          role: 'assistant',
-          timestamp: new Date(Date.now() - 3590000),
-        },
-      ],
+      title: 'New Chat',
+      lastMessage: '',
+      timestamp: new Date(),
+      messages: [],
     },
   ]);
   const [currentSessionId, setCurrentSessionId] = useState('1');
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  // Initialize model when component mounts
+  const modelInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!modelInitializedRef.current && status === 'idle') {
+      modelInitializedRef.current = true;
+      initializeModel();
+    }
+  }, [initializeModel, status]);
 
   const currentSession = sessions.find(s => s.id === currentSessionId);
 
-  const handleSend = () => {
-    if (!inputText.trim() || !currentSession) return;
+  const handleSend = async () => {
+    if (!inputText.trim() || !currentSession || !isReady) return;
 
-    const newMessage: ChatMessage = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       content: inputText,
       role: 'user',
       timestamp: new Date(),
     };
+    
+    const messageText = inputText;
+    setInputText('');
 
-    const updatedSessions = sessions.map(session => {
+    // Add user message to session
+    setSessions(prev => prev.map(session => {
       if (session.id === currentSessionId) {
         return {
           ...session,
-          messages: [...session.messages, newMessage],
-          lastMessage: inputText,
+          messages: [...session.messages, userMessage],
+          lastMessage: messageText,
           timestamp: new Date(),
+          title: session.messages.length === 0 ? messageText.substring(0, 30) + (messageText.length > 30 ? '...' : '') : session.title,
         };
       }
       return session;
-    });
+    }));
 
-    setSessions(updatedSessions);
-    setInputText('');
-
-    // Simulate AI response
+    // Scroll to bottom after user message
     setTimeout(() => {
-      const aiResponse: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        content: 'This is a placeholder response. In a real app, this would be connected to an AI service.',
-        role: 'assistant',
-        timestamp: new Date(),
-      };
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
 
+    try {
+      // Prepare messages for AI (convert from ChatMessage to the format expected by useChatAI)
+      const currentMessages = currentSession.messages.concat(userMessage);
+      const aiMessages = currentMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      // Add a placeholder assistant message that will be updated with streaming response
+      const assistantMessageId = (Date.now() + 1).toString();
+      setSessions(prev => prev.map(session => {
+        if (session.id === currentSessionId) {
+          const placeholderMessage: ChatMessage = {
+            id: assistantMessageId,
+            content: '',
+            role: 'assistant',
+            timestamp: new Date(),
+          };
+          return {
+            ...session,
+            messages: [...session.messages, placeholderMessage],
+          };
+        }
+        return session;
+      }));
+
+      // Generate AI response with streaming
+      const response = await generateResponse(
+        aiMessages,
+        (partial) => {
+          // Update the assistant message with partial response
+          setSessions(prev => prev.map(session => {
+            if (session.id === currentSessionId) {
+              return {
+                ...session,
+                messages: session.messages.map(msg =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: partial }
+                    : msg
+                ),
+                lastMessage: partial,
+              };
+            }
+            return session;
+          }));
+          
+          // Auto-scroll as response streams in
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 50);
+        }
+      );
+
+      // Final update with complete response
       setSessions(prev => prev.map(session => {
         if (session.id === currentSessionId) {
           return {
             ...session,
-            messages: [...session.messages, aiResponse],
-            lastMessage: aiResponse.content,
+            messages: session.messages.map(msg =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: response }
+                : msg
+            ),
+            lastMessage: response,
             timestamp: new Date(),
           };
         }
         return session;
       }));
-    }, 1000);
+      
+      // Scroll to bottom after complete response
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    } catch (err) {
+      console.error('Chat error:', err);
+      
+      // Show error message
+      const errorMessageId = (Date.now() + 2).toString();
+      setSessions(prev => prev.map(session => {
+        if (session.id === currentSessionId) {
+          const errorMessage: ChatMessage = {
+            id: errorMessageId,
+            content: 'Sorry, I encountered an error generating a response. Please try again.',
+            role: 'assistant',
+            timestamp: new Date(),
+          };
+          
+          return {
+            ...session,
+            messages: [...session.messages, errorMessage],
+            lastMessage: errorMessage.content,
+          };
+        }
+        return session;
+      }));
+    }
   };
 
   const createNewChat = () => {
@@ -133,6 +225,61 @@ export default function ChatScreen() {
     }
   };
 
+  // Show loading screen while model is initializing
+  if (status === 'loading' || status === 'downloading') {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <ThemedView style={[styles.container, styles.centerContent]}>
+          <ActivityIndicator size="large" color={colors.tint} />
+          <ThemedText style={styles.loadingText}>
+            {status === 'downloading' 
+              ? `Downloading Chat AI Model... ${progress}%` 
+              : 'Loading Chat AI Model...'}
+          </ThemedText>
+          {status === 'downloading' && (
+            <View style={[styles.progressBar, { backgroundColor: colors.icon + '20' }]}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { 
+                    backgroundColor: colors.tint,
+                    width: `${progress}%`
+                  }
+                ]} 
+              />
+            </View>
+          )}
+          <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
+            This may take a few minutes on first launch
+          </ThemedText>
+        </ThemedView>
+      </SafeAreaView>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <ThemedView style={[styles.container, styles.centerContent]}>
+          <IconSymbol name="exclamationmark.triangle" size={64} color="#ff4444" />
+          <ThemedText style={[styles.errorText, { color: '#ff4444' }]}>
+            Failed to load Chat AI
+          </ThemedText>
+          {error && (
+            <ThemedText style={[styles.errorSubtext, { color: colors.icon }]}>
+              {error}
+            </ThemedText>
+          )}
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: colors.tint }]}
+            onPress={initializeModel}>
+            <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </SafeAreaView>
+    );
+  }
+  
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
@@ -204,7 +351,10 @@ export default function ChatScreen() {
           style={styles.chatArea}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={90}>
-          <ScrollView style={styles.messagesContainer} contentContainerStyle={styles.messagesContent}>
+          <ScrollView 
+            ref={scrollViewRef}
+            style={styles.messagesContainer} 
+            contentContainerStyle={styles.messagesContent}>
             {currentSession?.messages.length === 0 ? (
               <View style={styles.emptyState}>
                 <IconSymbol name="message" size={64} color={colors.icon + '40'} />
@@ -273,11 +423,15 @@ export default function ChatScreen() {
             <TouchableOpacity
               style={[
                 styles.sendButton,
-                { backgroundColor: inputText.trim() ? colors.tint : colors.icon + '40' },
+                { backgroundColor: inputText.trim() && isReady && !isGenerating ? colors.tint : colors.icon + '40' },
               ]}
               onPress={handleSend}
-              disabled={!inputText.trim()}>
-              <IconSymbol name="arrow.up" size={20} color="#fff" />
+              disabled={!inputText.trim() || !isReady || isGenerating}>
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <IconSymbol name="arrow.up" size={20} color="#fff" />
+              )}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -289,6 +443,55 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  progressBar: {
+    width: '80%',
+    height: 8,
+    borderRadius: 4,
+    marginTop: 16,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
@@ -436,4 +639,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-
