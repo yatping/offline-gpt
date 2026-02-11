@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dreamsai.offlinetranslate",
+      "bundleIdentifier": "com.holfun.offlinetranslate",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Camera is required to scan and take pictures.",
@@ -27,10 +27,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.dreamsai.offlinetranslate",
+      "package": "com.holfun.offlinetranslate",
       "permissions": [
         "android.permission.INTERNET",
-        "com.android.vending.BILLING"
+        "com.android.vending.BILLING",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -70,7 +71,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5eadfc50-037f-410e-9702-354255a675fa"
+        "projectId": "87a929a3-e321-4c60-9d1f-8fadb6502515"
       }
     }
   }
