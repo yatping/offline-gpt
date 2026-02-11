@@ -16,8 +16,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useChatAI } from '@/hooks/use-chat-ai';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 type ChatMessage = {
   id: string;

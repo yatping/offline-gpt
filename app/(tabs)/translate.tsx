@@ -73,6 +73,7 @@ export default function TranslateScreen() {
   const {
     status,
     error,
+    progress,
     translate,
     isReady,
     isTranslating,
@@ -521,8 +522,38 @@ export default function TranslateScreen() {
   };
 
   // Render Text Translation Mode
-  const renderTextTranslateMode = () => (
-    <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss} accessible={false}>
+  const renderTextTranslateMode = () => {
+    if (status === 'loading' || status === 'downloading') {
+      return (
+        <View style={[styles.container, styles.centerContent]}>
+          <ActivityIndicator size="large" color={colors.tint} />
+          <ThemedText style={styles.loadingText}>
+            {status === 'downloading' 
+              ? `Downloading Translation AI Model... ${progress}%` 
+              : 'Loading Translation AI Model...'}
+          </ThemedText>
+          {status === 'downloading' && (
+            <View style={[styles.progressBar, { backgroundColor: colors.icon + '20' }]}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { 
+                    backgroundColor: colors.tint,
+                    width: `${progress}%`
+                  }
+                ]} 
+              />
+            </View>
+          )}
+          <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
+            This may take a few minutes on first launch
+          </ThemedText>
+        </View>
+      );
+    }
+
+    return (
+      <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss} accessible={false}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {error && (
           <ThemedText style={[styles.errorText, { color: '#ff4444' }]}>
@@ -630,18 +661,37 @@ export default function TranslateScreen() {
         />
       </View>
     </Pressable>
-  );
+    );
+  };
 
   // Render Camera Mode
   const renderCameraMode = () => {
     if (status === 'loading' || status === 'downloading') {
       return (
-        <ThemedView style={[styles.container, styles.centerContent]}>
+        <View style={[styles.container, styles.centerContent]}>
           <ActivityIndicator size="large" color={colors.tint} />
-          <ThemedText style={styles.message}>
-            {status === 'downloading' ? 'Downloading AI Translation Model...' : 'Loading AI Translation Model...'}
+          <ThemedText style={styles.loadingText}>
+            {status === 'downloading' 
+              ? `Downloading Translation AI Model... ${progress}%` 
+              : 'Loading Translation AI Model...'}
           </ThemedText>
-        </ThemedView>
+          {status === 'downloading' && (
+            <View style={[styles.progressBar, { backgroundColor: colors.icon + '20' }]}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { 
+                    backgroundColor: colors.tint,
+                    width: `${progress}%`
+                  }
+                ]} 
+              />
+            </View>
+          )}
+          <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
+            This may take a few minutes on first launch
+          </ThemedText>
+        </View>
       );
     }
 
@@ -882,42 +932,73 @@ export default function TranslateScreen() {
     );
   };
 
-  const renderConversationMode = () => (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ChatSection
-        allMessages={allMessages}
-        language={upperLanguage}
-        onLanguagePress={() => setShowUpperLanguagePicker(true)}
-        onRecordPress={() => handleRecordPress('upper')}
-        isRecording={isRecordingUpper}
-        isUpsideDown={true}
-        currentTranscript={currentUpperTranscript}
-      />
+  const renderConversationMode = () => {
+    if (status === 'loading' || status === 'downloading') {
+      return (
+        <View style={[styles.container, styles.centerContent]}>
+          <ActivityIndicator size="large" color={colors.tint} />
+          <ThemedText style={styles.loadingText}>
+            {status === 'downloading' 
+              ? `Downloading Translation AI Model... ${progress}%` 
+              : 'Loading Translation AI Model...'}
+          </ThemedText>
+          {status === 'downloading' && (
+            <View style={[styles.progressBar, { backgroundColor: colors.icon + '20' }]}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { 
+                    backgroundColor: colors.tint,
+                    width: `${progress}%`
+                  }
+                ]} 
+              />
+            </View>
+          )}
+          <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
+            This may take a few minutes on first launch
+          </ThemedText>
+        </View>
+      );
+    }
 
-      <View style={[styles.divider, { backgroundColor: colors.icon + '30' }]} />
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ChatSection
+          allMessages={allMessages}
+          language={upperLanguage}
+          onLanguagePress={() => setShowUpperLanguagePicker(true)}
+          onRecordPress={() => handleRecordPress('upper')}
+          isRecording={isRecordingUpper}
+          isUpsideDown={true}
+          currentTranscript={currentUpperTranscript}
+        />
 
-      <ChatSection
-        allMessages={allMessages}
-        language={lowerLanguage}
-        onLanguagePress={() => setShowLowerLanguagePicker(true)}
-        onRecordPress={() => handleRecordPress('lower')}
-        isRecording={isRecordingLower}
-        isUpsideDown={false}
-        currentTranscript={currentLowerTranscript}
-      />
+        <View style={[styles.divider, { backgroundColor: colors.icon + '30' }]} />
 
-      <SpeechLanguagePicker
-        visible={showUpperLanguagePicker}
-        onSelect={setUpperLanguage}
-        onClose={() => setShowUpperLanguagePicker(false)}
-      />
-      <SpeechLanguagePicker
-        visible={showLowerLanguagePicker}
-        onSelect={setLowerLanguage}
-        onClose={() => setShowLowerLanguagePicker(false)}
-      />
-    </View>
-  );
+        <ChatSection
+          allMessages={allMessages}
+          language={lowerLanguage}
+          onLanguagePress={() => setShowLowerLanguagePicker(true)}
+          onRecordPress={() => handleRecordPress('lower')}
+          isRecording={isRecordingLower}
+          isUpsideDown={false}
+          currentTranscript={currentLowerTranscript}
+        />
+
+        <SpeechLanguagePicker
+          visible={showUpperLanguagePicker}
+          onSelect={setUpperLanguage}
+          onClose={() => setShowUpperLanguagePicker(false)}
+        />
+        <SpeechLanguagePicker
+          visible={showLowerLanguagePicker}
+          onSelect={setLowerLanguage}
+          onClose={() => setShowLowerLanguagePicker(false)}
+        />
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.safeContainer, { backgroundColor: colors.background }]} edges={['top']}>
@@ -940,6 +1021,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  progressBar: {
+    width: '80%',
+    height: 8,
+    borderRadius: 4,
+    marginTop: 16,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
   },
   modeHeader: {
     flexDirection: 'row',
