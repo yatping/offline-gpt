@@ -281,162 +281,164 @@ export default function ChatScreen() {
   }
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => setShowSidebar(!showSidebar)}>
-          <IconSymbol name="line.3.horizontal" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>
-          {currentSession?.title || 'Chat'}
-        </ThemedText>
-        <TouchableOpacity style={styles.newChatButton} onPress={createNewChat}>
-          <IconSymbol name="square.and.pencil" size={24} color={colors.text} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => setShowSidebar(!showSidebar)}>
+            <IconSymbol name="line.3.horizontal" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <ThemedText style={styles.headerTitle}>
+            {currentSession?.title || 'Chat'}
+          </ThemedText>
+          <TouchableOpacity style={styles.newChatButton} onPress={createNewChat}>
+            <IconSymbol name="square.and.pencil" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.content}>
-        {/* Sidebar */}
-        {showSidebar && (
-          <>
-            <Pressable
-              style={styles.overlay}
-              onPress={() => setShowSidebar(false)}
-            />
-            <View style={[styles.sidebar, { backgroundColor: colors.background, borderRightColor: colors.icon + '30' }]}>
-              <View style={styles.sidebarHeader}>
-                <ThemedText style={styles.sidebarTitle}>Chat History</ThemedText>
-                <TouchableOpacity onPress={createNewChat}>
-                  <IconSymbol name="plus.circle.fill" size={28} color={colors.tint} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={styles.sessionList}>
-                {sessions.map((session) => (
-                  <TouchableOpacity
-                    key={session.id}
-                    style={[
-                      styles.sessionItem,
-                      { 
-                        backgroundColor: session.id === currentSessionId ? colors.tint + '20' : 'transparent',
-                        borderBottomColor: colors.icon + '20',
-                      },
-                    ]}
-                    onPress={() => {
-                      setCurrentSessionId(session.id);
-                      setShowSidebar(false);
-                    }}>
-                    <View style={styles.sessionInfo}>
-                      <ThemedText style={styles.sessionTitle} numberOfLines={1}>
-                        {session.title}
-                      </ThemedText>
-                      <ThemedText style={[styles.sessionPreview, { color: colors.icon }]} numberOfLines={1}>
-                        {session.lastMessage || 'No messages yet'}
-                      </ThemedText>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => deleteSession(session.id)}>
-                      <IconSymbol name="trash" size={18} color={colors.icon} />
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </>
-        )}
-
-        {/* Main Chat Area */}
-        <KeyboardAvoidingView
-          style={styles.chatArea}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={90}>
-          <ScrollView 
-            ref={scrollViewRef}
-            style={styles.messagesContainer} 
-            contentContainerStyle={styles.messagesContent}>
-            {currentSession?.messages.length === 0 ? (
-              <View style={styles.emptyState}>
-                <IconSymbol name="message" size={64} color={colors.icon + '40'} />
-                <ThemedText style={[styles.emptyText, { color: colors.icon }]}>
-                  Start a conversation
-                </ThemedText>
-                <ThemedText style={[styles.emptySubtext, { color: colors.icon }]}>
-                  Type a message below to begin
-                </ThemedText>
-              </View>
-            ) : (
-              currentSession?.messages.map((message) => (
-                <View
-                  key={message.id}
-                  style={[
-                    styles.messageWrapper,
-                    message.role === 'user' ? styles.userMessageWrapper : styles.assistantMessageWrapper,
-                  ]}>
-                  <ThemedView
-                    style={[
-                      styles.messageBubble,
-                      message.role === 'user'
-                        ? { backgroundColor: colors.tint }
-                        : { backgroundColor: colors.icon + '20' },
-                    ]}>
-                    <ThemedText
-                      style={[
-                        styles.messageText,
-                        message.role === 'user' && { color: '#fff' },
-                      ]}>
-                      {message.content}
-                    </ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.messageTime,
-                        { color: message.role === 'user' ? '#fff' : colors.icon },
-                        message.role === 'user' && { opacity: 0.8 },
-                      ]}>
-                      {message.timestamp.toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </ThemedText>
-                  </ThemedView>
+        <View style={styles.content}>
+          {/* Main Chat Area */}
+          <KeyboardAvoidingView
+            style={styles.chatArea}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={90}>
+            <ScrollView 
+              ref={scrollViewRef}
+              style={styles.messagesContainer} 
+              contentContainerStyle={styles.messagesContent}>
+              {currentSession?.messages.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <IconSymbol name="message" size={64} color={colors.icon + '40'} />
+                  <ThemedText style={[styles.emptyText, { color: colors.icon }]}>
+                    Start a conversation
+                  </ThemedText>
+                  <ThemedText style={[styles.emptySubtext, { color: colors.icon }]}>
+                    Type a message below to begin
+                  </ThemedText>
                 </View>
-              ))
-            )}
-          </ScrollView>
-
-          <View style={[styles.inputContainer, { backgroundColor: colors.background, borderTopColor: colors.icon + '30' }]}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  color: colors.text,
-                  backgroundColor: colors.icon + '10',
-                },
-              ]}
-              placeholder="Type a message..."
-              placeholderTextColor={colors.icon}
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-              maxLength={1000}
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                { backgroundColor: inputText.trim() && isReady && !isGenerating ? colors.tint : colors.icon + '40' },
-              ]}
-              onPress={handleSend}
-              disabled={!inputText.trim() || !isReady || isGenerating}>
-              {isGenerating ? (
-                <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <IconSymbol name="arrow.up" size={20} color="#fff" />
+                currentSession?.messages.map((message) => (
+                  <View
+                    key={message.id}
+                    style={[
+                      styles.messageWrapper,
+                      message.role === 'user' ? styles.userMessageWrapper : styles.assistantMessageWrapper,
+                    ]}>
+                    <ThemedView
+                      style={[
+                        styles.messageBubble,
+                        message.role === 'user'
+                          ? { backgroundColor: colors.tint }
+                          : { backgroundColor: colors.icon + '20' },
+                      ]}>
+                      <ThemedText
+                        style={[
+                          styles.messageText,
+                          message.role === 'user' && { color: '#fff' },
+                        ]}>
+                        {message.content}
+                      </ThemedText>
+                      <ThemedText
+                        style={[
+                          styles.messageTime,
+                          { color: message.role === 'user' ? '#fff' : colors.icon },
+                          message.role === 'user' && { opacity: 0.8 },
+                        ]}>
+                        {message.timestamp.toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </ThemedText>
+                    </ThemedView>
+                  </View>
+                ))
               )}
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
-    </SafeAreaView>
+            </ScrollView>
+
+            <View style={[styles.inputContainer, { backgroundColor: colors.background, borderTopColor: colors.icon + '30' }]}>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    color: colors.text,
+                    backgroundColor: colors.icon + '10',
+                  },
+                ]}
+                placeholder="Type a message..."
+                placeholderTextColor={colors.icon}
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+                maxLength={1000}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  { backgroundColor: inputText.trim() && isReady && !isGenerating ? colors.tint : colors.icon + '40' },
+                ]}
+                onPress={handleSend}
+                disabled={!inputText.trim() || !isReady || isGenerating}>
+                {isGenerating ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <IconSymbol name="arrow.up" size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </SafeAreaView>
+
+      {/* Sidebar - positioned to cover entire screen including bottom bar and notch */}
+      {showSidebar && (
+        <>
+          <Pressable
+            style={styles.overlay}
+            onPress={() => setShowSidebar(false)}
+          />
+          <SafeAreaView style={[styles.sidebar, { backgroundColor: colors.background, borderRightColor: colors.icon + '30' }]} edges={['top', 'bottom']}>
+            <View style={styles.sidebarHeader}>
+              <ThemedText style={styles.sidebarTitle}>Chat History</ThemedText>
+              <TouchableOpacity onPress={createNewChat}>
+                <IconSymbol name="plus.circle.fill" size={28} color={colors.tint} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.sessionList}>
+              {sessions.map((session) => (
+                <TouchableOpacity
+                  key={session.id}
+                  style={[
+                    styles.sessionItem,
+                    { 
+                      backgroundColor: session.id === currentSessionId ? colors.tint + '20' : 'transparent',
+                      borderBottomColor: colors.icon + '20',
+                    },
+                  ]}
+                  onPress={() => {
+                    setCurrentSessionId(session.id);
+                    setShowSidebar(false);
+                  }}>
+                  <View style={styles.sessionInfo}>
+                    <ThemedText style={styles.sessionTitle} numberOfLines={1}>
+                      {session.title}
+                    </ThemedText>
+                    <ThemedText style={[styles.sessionPreview, { color: colors.icon }]} numberOfLines={1}>
+                      {session.lastMessage || 'No messages yet'}
+                    </ThemedText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => deleteSession(session.id)}>
+                    <IconSymbol name="trash" size={18} color={colors.icon} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </>
+      )}
+    </View>
   );
 }
 

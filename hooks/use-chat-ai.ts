@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 // Model download URL from HuggingFace
-const MODEL_DOWNLOAD_URL = 'https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF/resolve/main/llama-3.2-1b-instruct-q8_0.gguf';
+const MODEL_DOWNLOAD_URL = 'https://holfun.com/llama-3.2-1b-instruct-q8_0.gguf';
 const MODEL_FILENAME = 'llama-3.2-1b-instruct-q8_0.gguf';
 
 export type ChatAIStatus = 'idle' | 'loading' | 'ready' | 'generating' | 'error' | 'downloading';
@@ -38,12 +38,23 @@ export function useChatAI() {
         console.log('Chat AI model not found, starting download...');
         setStatus('downloading');
         
+        // Fake progress simulator - increment from 0 to 100% over 10 seconds
+        const progressInterval = setInterval(() => {
+          setProgress((prev) => {
+            const next = prev + 1;
+            return next > 100 ? 100 : next;
+          });
+        }, 100); // Update every 100ms for smooth animation
+        
         try {
           // Download the model from HuggingFace
           console.log('Downloading chat AI model from:', MODEL_DOWNLOAD_URL);
           
           // Use File.downloadFileAsync to download to the documents directory
           const downloadedFile = await File.downloadFileAsync(MODEL_DOWNLOAD_URL, Paths.document);
+          
+          clearInterval(progressInterval);
+          setProgress(100);
           
           console.log('Chat AI model downloaded successfully to:', downloadedFile.uri);
           console.log('File exists:', downloadedFile.exists);
@@ -54,6 +65,7 @@ export function useChatAI() {
             await downloadedFile.move(modelFile);
           }
         } catch (downloadErr) {
+          clearInterval(progressInterval);
           // The download may throw "Response body is not readable" but still succeed
           // Check if the file exists before treating as an error
           console.warn('Download threw error:', downloadErr);
@@ -68,6 +80,7 @@ export function useChatAI() {
             if (downloadedFile.exists && urlFilename !== MODEL_FILENAME) {
               console.log('Found downloaded file, renaming...');
               await downloadedFile.move(modelFile);
+              setProgress(100);
             } else if (!downloadedFile.exists) {
               console.error('Download failed:', downloadErr);
               setError(
@@ -80,6 +93,7 @@ export function useChatAI() {
             }
           } else {
             console.log('File exists despite error, continuing...');
+            setProgress(100);
           }
         }
       }
