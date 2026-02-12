@@ -16,23 +16,18 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
-import { useChatAI } from '@/hooks/use-chat-ai';
+import { ChatMessage, useChatAI } from '@/hooks/use-chat-ai';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-type ChatMessage = {
-  id: string;
-  content: string;
-  role: 'user' | 'assistant';
-  timestamp: Date;
-};
-
-type ChatSession = {
-  id: string;
-  title: string;
-  lastMessage: string;
-  timestamp: Date;
-  messages: ChatMessage[];
-};
+import {
+  ChatSession,
+  deleteSession as deleteSessionFromStorage,
+  generateSessionId,
+  generateSessionTitle,
+  getActiveSessionId,
+  loadSessions,
+  saveSession,
+  setActiveSessionId,
+} from '@/utils/chat-storage';
 
 export default function ChatScreen() {
   const colorScheme = useColorScheme();
@@ -50,16 +45,9 @@ export default function ChatScreen() {
   
   const [showSidebar, setShowSidebar] = useState(false);
   const [inputText, setInputText] = useState('');
-  const [sessions, setSessions] = useState<ChatSession[]>([
-    {
-      id: '1',
-      title: 'New Chat',
-      lastMessage: '',
-      timestamp: new Date(),
-      messages: [],
-    },
-  ]);
-  const [currentSessionId, setCurrentSessionId] = useState('1');
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
   
   // Initialize model when component mounts
@@ -71,34 +59,100 @@ export default function ChatScreen() {
     }
   }, [initializeModel, status]);
 
+  // Load sessions from storage on mount
+  useEffect(() => {
+    const loadInitialSessions = async () => {
+      try {
+        setIsLoadingSessions(true);
+        const storedSessions = await loadSessions();
+        console.log('Loaded sessions:', storedSessions.length, storedSessions.map(s => ({
+          id: s.id,
+          title: s.title,
+          messageCount: s.messages?.length || 0,
+        })));
+        const activeId = await getActiveSessionId();
+        console.log('Active session ID:', activeId);
+        
+        if (storedSessions.length > 0) {
+          setSessions(storedSessions);
+          // Use the active session if it exists, otherwise use the first session
+          const validActiveId = storedSessions.find(s => s.id === activeId)
+            ? activeId
+            : storedSessions[0].id;
+          setCurrentSessionId(validActiveId);
+        } else {
+          // Create a default session if none exist
+          const newSession: ChatSession = {
+            id: generateSessionId(),
+            title: 'New Chat',
+            messages: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          setSessions([newSession]);
+          setCurrentSessionId(newSession.id);
+          await saveSession(newSession);
+          await setActiveSessionId(newSession.id);
+        }
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
+        // Fallback to a new session
+        const fallbackSession: ChatSession = {
+          id: generateSessionId(),
+          title: 'New Chat',
+          messages: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        setSessions([fallbackSession]);
+        setCurrentSessionId(fallbackSession.id);
+      } finally {
+        setIsLoadingSessions(false);
+      }
+    };
+
+    loadInitialSessions();
+  }, []);
+
   const currentSession = sessions.find(s => s.id === currentSessionId);
+
+  // Save active session ID when it changes
+  useEffect(() => {
+    if (currentSessionId) {
+      setActiveSessionId(currentSessionId);
+    }
+  }, [currentSessionId]);
 
   const handleSend = async () => {
     if (!inputText.trim() || !currentSession || !isReady) return;
 
     const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      content: inputText,
       role: 'user',
-      timestamp: new Date(),
+      content: inputText,
     };
     
-    const messageText = inputText;
     setInputText('');
 
-    // Add user message to session
-    setSessions(prev => prev.map(session => {
-      if (session.id === currentSessionId) {
-        return {
-          ...session,
-          messages: [...session.messages, userMessage],
-          lastMessage: messageText,
-          timestamp: new Date(),
-          title: session.messages.length === 0 ? messageText.substring(0, 30) + (messageText.length > 30 ? '...' : '') : session.title,
-        };
-      }
-      return session;
-    }));
+    // Create updated session with user message
+    const updatedSession: ChatSession = {
+      ...currentSession,
+      messages: [...currentSession.messages, userMessage],
+      updatedAt: new Date(),
+      title: currentSession.messages.length === 0 ? generateSessionTitle([userMessage]) : currentSession.title,
+    };
+
+    // Update state
+    setSessions(prev => prev.map(session => 
+      session.id === currentSessionId ? updatedSession : session
+    ));
+
+    // Save the updated session
+    console.log('Saving session with user message:', {
+      id: updatedSession.id,
+      title: updatedSession.title,
+      messageCount: updatedSession.messages.length,
+    });
+    await saveSession(updatedSession);
 
     // Scroll to bottom after user message
     setTimeout(() => {
@@ -106,26 +160,25 @@ export default function ChatScreen() {
     }, 100);
 
     try {
-      // Prepare messages for AI (convert from ChatMessage to the format expected by useChatAI)
-      const currentMessages = currentSession.messages.concat(userMessage);
-      const aiMessages = currentMessages.map(msg => ({
+      // Prepare messages for AI
+      const aiMessages = updatedSession.messages.map(msg => ({
         role: msg.role,
         content: msg.content,
       }));
 
       // Add a placeholder assistant message that will be updated with streaming response
-      const assistantMessageId = (Date.now() + 1).toString();
+      const assistantPlaceholder: ChatMessage = {
+        role: 'assistant',
+        content: '',
+      };
+      // Index is after all existing messages in the updated session
+      const assistantMessageIndex = updatedSession.messages.length;
+      
       setSessions(prev => prev.map(session => {
         if (session.id === currentSessionId) {
-          const placeholderMessage: ChatMessage = {
-            id: assistantMessageId,
-            content: '',
-            role: 'assistant',
-            timestamp: new Date(),
-          };
           return {
             ...session,
-            messages: [...session.messages, placeholderMessage],
+            messages: [...session.messages, assistantPlaceholder],
           };
         }
         return session;
@@ -138,14 +191,14 @@ export default function ChatScreen() {
           // Update the assistant message with partial response
           setSessions(prev => prev.map(session => {
             if (session.id === currentSessionId) {
+              const newMessages = [...session.messages];
+              newMessages[assistantMessageIndex] = {
+                role: 'assistant',
+                content: partial,
+              };
               return {
                 ...session,
-                messages: session.messages.map(msg =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: partial }
-                    : msg
-                ),
-                lastMessage: partial,
+                messages: newMessages,
               };
             }
             return session;
@@ -158,22 +211,31 @@ export default function ChatScreen() {
         }
       );
 
-      // Final update with complete response
-      setSessions(prev => prev.map(session => {
-        if (session.id === currentSessionId) {
-          return {
-            ...session,
-            messages: session.messages.map(msg =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: response }
-                : msg
-            ),
-            lastMessage: response,
-            timestamp: new Date(),
-          };
-        }
-        return session;
-      }));
+      // Create the final session with complete response
+      const finalMessages = [...updatedSession.messages, {
+        role: 'assistant' as const,
+        content: response,
+      }];
+      
+      const finalSession: ChatSession = {
+        ...updatedSession,
+        messages: finalMessages,
+        updatedAt: new Date(),
+      };
+      
+      // Update state
+      setSessions(prev => prev.map(session => 
+        session.id === currentSessionId ? finalSession : session
+      ));
+      
+      // Save the final session with complete response
+      console.log('Saving session with AI response:', {
+        id: finalSession.id,
+        title: finalSession.title,
+        messageCount: finalSession.messages.length,
+        lastMessage: finalSession.messages[finalSession.messages.length - 1]?.content?.substring(0, 50),
+      });
+      await saveSession(finalSession);
       
       // Scroll to bottom after complete response
       setTimeout(() => {
@@ -182,46 +244,77 @@ export default function ChatScreen() {
     } catch (err) {
       console.error('Chat error:', err);
       
-      // Show error message
-      const errorMessageId = (Date.now() + 2).toString();
-      setSessions(prev => prev.map(session => {
-        if (session.id === currentSessionId) {
-          const errorMessage: ChatMessage = {
-            id: errorMessageId,
-            content: 'Sorry, I encountered an error generating a response. Please try again.',
-            role: 'assistant',
-            timestamp: new Date(),
-          };
-          
-          return {
-            ...session,
-            messages: [...session.messages, errorMessage],
-            lastMessage: errorMessage.content,
-          };
-        }
-        return session;
-      }));
+      // Create error message
+      const errorMessage: ChatMessage = {
+        role: 'assistant',
+        content: 'Sorry, I encountered an error generating a response. Please try again.',
+      };
+      
+      // Create session with error message (using the updated session with user message)
+      const errorSession: ChatSession = {
+        ...updatedSession,
+        messages: [...updatedSession.messages, errorMessage],
+        updatedAt: new Date(),
+      };
+      
+      // Update state
+      setSessions(prev => prev.map(session => 
+        session.id === currentSessionId ? errorSession : session
+      ));
+      
+      // Save session with error message
+      await saveSession(errorSession);
     }
   };
 
-  const createNewChat = () => {
+  const createNewChat = async () => {
     const newSession: ChatSession = {
-      id: Date.now().toString(),
+      id: generateSessionId(),
       title: 'New Chat',
-      lastMessage: '',
-      timestamp: new Date(),
       messages: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     setSessions([newSession, ...sessions]);
     setCurrentSessionId(newSession.id);
     setShowSidebar(false);
+    
+    // Save the new session and set it as active
+    await saveSession(newSession);
+    await setActiveSessionId(newSession.id);
   };
 
-  const deleteSession = (sessionId: string) => {
-    const filtered = sessions.filter(s => s.id !== sessionId);
-    setSessions(filtered);
-    if (currentSessionId === sessionId && filtered.length > 0) {
-      setCurrentSessionId(filtered[0].id);
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      // Delete from storage
+      await deleteSessionFromStorage(sessionId);
+      
+      // Update local state
+      const filtered = sessions.filter(s => s.id !== sessionId);
+      setSessions(filtered);
+      
+      // If we deleted the current session, switch to another or create new
+      if (currentSessionId === sessionId) {
+        if (filtered.length > 0) {
+          setCurrentSessionId(filtered[0].id);
+          await setActiveSessionId(filtered[0].id);
+        } else {
+          // No sessions left, create a new one
+          const newSession: ChatSession = {
+            id: generateSessionId(),
+            title: 'New Chat',
+            messages: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          setSessions([newSession]);
+          setCurrentSessionId(newSession.id);
+          await saveSession(newSession);
+          await setActiveSessionId(newSession.id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete session:', error);
     }
   };
 
@@ -318,9 +411,9 @@ export default function ChatScreen() {
                   </ThemedText>
                 </View>
               ) : (
-                currentSession?.messages.map((message) => (
+                currentSession?.messages.filter(msg => msg.content && msg.content.trim()).map((message, index) => (
                   <View
-                    key={message.id}
+                    key={`${currentSessionId}-${index}`}
                     style={[
                       styles.messageWrapper,
                       message.role === 'user' ? styles.userMessageWrapper : styles.assistantMessageWrapper,
@@ -338,17 +431,6 @@ export default function ChatScreen() {
                           message.role === 'user' && { color: '#fff' },
                         ]}>
                         {message.content}
-                      </ThemedText>
-                      <ThemedText
-                        style={[
-                          styles.messageTime,
-                          { color: message.role === 'user' ? '#fff' : colors.icon },
-                          message.role === 'user' && { opacity: 0.8 },
-                        ]}>
-                        {message.timestamp.toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
                       </ThemedText>
                     </ThemedView>
                   </View>
@@ -405,35 +487,44 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.sessionList}>
-              {sessions.map((session) => (
-                <TouchableOpacity
-                  key={session.id}
-                  style={[
-                    styles.sessionItem,
-                    { 
-                      backgroundColor: session.id === currentSessionId ? colors.tint + '20' : 'transparent',
-                      borderBottomColor: colors.icon + '20',
-                    },
-                  ]}
-                  onPress={() => {
-                    setCurrentSessionId(session.id);
-                    setShowSidebar(false);
-                  }}>
-                  <View style={styles.sessionInfo}>
-                    <ThemedText style={styles.sessionTitle} numberOfLines={1}>
-                      {session.title}
-                    </ThemedText>
-                    <ThemedText style={[styles.sessionPreview, { color: colors.icon }]} numberOfLines={1}>
-                      {session.lastMessage || 'No messages yet'}
-                    </ThemedText>
-                  </View>
+              {sessions.map((session) => {
+                const lastMessage = session.messages.length > 0 
+                  ? session.messages[session.messages.length - 1].content 
+                  : 'No messages yet';
+                  
+                return (
                   <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => deleteSession(session.id)}>
-                    <IconSymbol name="trash" size={18} color={colors.icon} />
+                    key={session.id}
+                    style={[
+                      styles.sessionItem,
+                      { 
+                        backgroundColor: session.id === currentSessionId ? colors.tint + '20' : 'transparent',
+                        borderBottomColor: colors.icon + '20',
+                      },
+                    ]}
+                    onPress={() => {
+                      setCurrentSessionId(session.id);
+                      setShowSidebar(false);
+                    }}>
+                    <View style={styles.sessionInfo}>
+                      <ThemedText style={styles.sessionTitle} numberOfLines={1}>
+                        {session.title}
+                      </ThemedText>
+                      <ThemedText style={[styles.sessionPreview, { color: colors.icon }]} numberOfLines={1}>
+                        {lastMessage}
+                      </ThemedText>
+                      <ThemedText style={[styles.sessionTimestamp, { color: colors.icon }]}>
+                        {session.updatedAt.toLocaleDateString()}
+                      </ThemedText>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteSession(session.id)}>
+                      <IconSymbol name="trash" size={18} color={colors.icon} />
+                    </TouchableOpacity>
                   </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
+                );
+              })}
             </ScrollView>
           </SafeAreaView>
         </>
@@ -568,6 +659,10 @@ const styles = StyleSheet.create({
   },
   sessionPreview: {
     fontSize: 14,
+    marginBottom: 4,
+  },
+  sessionTimestamp: {
+    fontSize: 12,
   },
   deleteButton: {
     padding: 8,
