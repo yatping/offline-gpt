@@ -1,21 +1,25 @@
 {
   "expo": {
-    "name": "offline-translate",
-    "slug": "offline-translate",
+    "name": "Offline GPT",
+    "slug": "offline-gpt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "offlinetranslate",
+    "scheme": "offlinegpt",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.holfun.offlinetranslate",
+      "bundleIdentifier": "com.holfun.offlinegpt",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Camera is required to scan and take pictures.",
         "NSMicrophoneUsageDescription": "Microphone is required for speech recognition.",
         "NSSpeechRecognitionUsageDescription": "Speech recognition is required to translate conversations."
+      },
+      "entitlements": {
+        "com.apple.developer.kernel.increased-memory-limit": true,
+        "com.apple.developer.kernel.extended-virtual-addressing": true
       }
     },
     "android": {
@@ -27,7 +31,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.holfun.offlinetranslate",
+      "package": "com.holfun.offlinegpt",
       "permissions": [
         "android.permission.INTERNET",
         "com.android.vending.BILLING",
@@ -71,7 +75,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "87a929a3-e321-4c60-9d1f-8fadb6502515"
+        "projectId": "d36df05f-69d4-43e8-b80e-eac52832ffc6"
       }
     }
   }
