@@ -7,17 +7,13 @@ import 'react-native-reanimated';
 import { TranslationProvider, useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
 function AppContent() {
   const colorScheme = useColorScheme();
   const { isDownloading, isLoading, progress } = useTranslationContext();
   return (
     <View style={{ flex: 1 }}>
       <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

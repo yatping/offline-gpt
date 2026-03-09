@@ -409,17 +409,14 @@ export default function TranslateScreen() {
     }
   };
 
-  // State for mode dropdown
-  const [showModeDropdown, setShowModeDropdown] = useState(false);
-
   const getModeTitle = (mode: TranslateMode) => {
     switch (mode) {
       case 'translate':
-        return 'Translate';
+        return 'Text';
       case 'camera':
         return 'Camera';
       case 'conversation':
-        return 'Conversation';
+        return 'Voice';
     }
   };
 
@@ -434,37 +431,56 @@ export default function TranslateScreen() {
     }
   };
 
-  const otherModes: TranslateMode[] = mode === 'translate' 
-    ? ['camera', 'conversation'] 
-    : mode === 'camera' 
-    ? ['translate', 'conversation'] 
-    : ['translate', 'camera'];
-
-  // Header Component
-  const ModeHeader = () => (
-    <View style={[styles.modeHeader, { backgroundColor: colors.background }]}>
+  // Bottom Tab Bar Component
+  const BottomTabBar = () => (
+    <View style={[styles.bottomTabBar, { backgroundColor: colors.background, borderTopColor: colors.icon + '30' }]}>
       <TouchableOpacity
-        style={styles.modeSelector}
-        onPress={() => setShowModeDropdown(!showModeDropdown)}>
-        <ThemedText style={styles.modeTitle}>{getModeTitle(mode)}</ThemedText>
-        <IconSymbol name="chevron.down" size={20} color={colors.text} />
+        style={styles.tabButton}
+        onPress={() => setMode('translate')}>
+        <IconSymbol 
+          name={getModeIcon('translate')} 
+          size={24} 
+          color={mode === 'translate' ? colors.tint : colors.icon} 
+        />
+        <ThemedText style={[
+          styles.tabButtonText,
+          { color: mode === 'translate' ? colors.tint : colors.icon }
+        ]}>
+          {getModeTitle('translate')}
+        </ThemedText>
       </TouchableOpacity>
-
-      {showModeDropdown && (
-        <View style={[styles.modeDropdown, { backgroundColor: colors.background, borderColor: colors.icon + '30' }]}>
-          {otherModes.map((otherMode) => (
-            <TouchableOpacity
-              key={otherMode}
-              style={[styles.modeDropdownItem, { borderBottomColor: colors.icon + '20' }]}
-              onPress={() => {
-                setMode(otherMode);
-                setShowModeDropdown(false);
-              }}>
-              <ThemedText style={styles.modeDropdownText}>{getModeTitle(otherMode)}</ThemedText>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() => setMode('camera')}>
+        <IconSymbol 
+          name={getModeIcon('camera')} 
+          size={24} 
+          color={mode === 'camera' ? colors.tint : colors.icon} 
+        />
+        <ThemedText style={[
+          styles.tabButtonText,
+          { color: mode === 'camera' ? colors.tint : colors.icon }
+        ]}>
+          {getModeTitle('camera')}
+        </ThemedText>
+      </TouchableOpacity>
+      
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() => setMode('conversation')}>
+        <IconSymbol 
+          name={getModeIcon('conversation')} 
+          size={24} 
+          color={mode === 'conversation' ? colors.tint : colors.icon} 
+        />
+        <ThemedText style={[
+          styles.tabButtonText,
+          { color: mode === 'conversation' ? colors.tint : colors.icon }
+        ]}>
+          {getModeTitle('conversation')}
+        </ThemedText>
+      </TouchableOpacity>
     </View>
   );
 
@@ -886,8 +902,7 @@ export default function TranslateScreen() {
 
         <ScrollView
           style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-          inverted={isUpsideDown}>
+          contentContainerStyle={styles.messagesContent}>
           {sectionMessages.length === 0 && !currentTranscript ? (
             <View style={styles.emptyState}>
               <ThemedText style={[styles.emptyText, { color: colors.icon }]}>
@@ -1016,10 +1031,10 @@ export default function TranslateScreen() {
 
   return (
     <SafeAreaView style={[styles.safeContainer, { backgroundColor: colors.background }]} edges={['top']}>
-      <ModeHeader />
       {mode === 'translate' && renderTextTranslateMode()}
       {mode === 'camera' && renderCameraMode()}
       {mode === 'conversation' && renderConversationMode()}
+      <BottomTabBar />
     </SafeAreaView>
   );
 }
@@ -1057,61 +1072,22 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 4,
   },
-  modeHeader: {
+  bottomTabBar: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
-    position: 'relative',
+    borderTopWidth: 1,
+    paddingBottom: 20,
+    paddingTop: 8,
   },
-  modeSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  modeTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  modeDropdown: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
-    right: 20,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 1000,
-  },
-  modeDropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-  },
-  modeDropdownText: {
-    fontSize: 18,
-    fontWeight: '500',
-  },
-  modeButton: {
+  tabButton: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 8,
   },
-  modeButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
+  tabButtonText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
   },
   errorText: {
     fontSize: 14,
