@@ -412,11 +412,11 @@ export default function TranslateScreen() {
   const getModeTitle = (mode: TranslateMode) => {
     switch (mode) {
       case 'translate':
-        return 'Text';
+        return 'Translate';
       case 'camera':
         return 'Camera';
       case 'conversation':
-        return 'Voice';
+        return 'Conversation';
     }
   };
 
@@ -576,7 +576,9 @@ export default function TranslateScreen() {
             </View>
           )}
           <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
-            This may take a few minutes on first launch
+            {status === 'downloading'
+              ? "This may take a few minutes. Please don't close the app."
+              : 'This may take a few seconds'}
           </ThemedText>
         </View>
       );
@@ -719,7 +721,9 @@ export default function TranslateScreen() {
             </View>
           )}
           <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
-            This may take a few minutes on first launch
+            {status === 'downloading'
+              ? "This may take a few minutes. Please don't close the app."
+              : 'This may take a few seconds'}
           </ThemedText>
         </View>
       );
@@ -985,7 +989,9 @@ export default function TranslateScreen() {
             </View>
           )}
           <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
-            This may take a few minutes on first launch
+            {status === 'downloading'
+              ? "This may take a few minutes. Please don't close the app."
+              : 'This may take a few seconds'}
           </ThemedText>
         </View>
       );

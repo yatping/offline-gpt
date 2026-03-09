@@ -1,21 +1,9 @@
 import { File, Paths } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { initLlama, LlamaContext } from 'llama.rn';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import TextRecognition from 'react-native-text-recognition';
-
-// Language codes for TranslateGemma
-const LANGUAGE_CODES: Record<string, string> = {
-  en: 'en',
-  es: 'es',
-  fr: 'fr',
-  de: 'de',
-  it: 'it',
-  pt: 'pt',
-  zh: 'zh',
-  ja: 'ja',
-  ko: 'ko',
-};
 
 // Model download URL from HuggingFace
 const MODEL_DOWNLOAD_URL = 'https://holfun.com/translategemma-4b-it.Q4_K_S.gguf';
@@ -28,14 +16,22 @@ export function useTranslation() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const contextRef = useRef<LlamaContext | null>(null);
+  const isInitializingRef = useRef(false);
+  const downloadResumableRef = useRef<FileSystem.DownloadResumable | null>(null);
 
   // Initialize the model
   const initializeModel = useCallback(async () => {
     if (contextRef.current) {
       return; // Already initialized
     }
+    
+    if (isInitializingRef.current) {
+      console.log('Initialization already in progress, skipping...');
+      return; // Already initializing
+    }
 
     try {
+      isInitializingRef.current = true;
       setStatus('loading');
       setError(null);
       setProgress(0);
@@ -47,59 +43,67 @@ export function useTranslation() {
         console.log('Model not found, starting download...');
         setStatus('downloading');
         
-        // Fake progress simulator - increment from 0 to 100% over 10 seconds
-        const progressInterval = setInterval(() => {
-          setProgress((prev) => {
-            const next = prev + 1;
-            return next > 100 ? 100 : next;
-          });
-        }, 100); // Update every 100ms for smooth animation
-        
         try {
-          // Download the model from HuggingFace
+          // Download the model from HuggingFace with real progress tracking
           console.log('Downloading model from:', MODEL_DOWNLOAD_URL);
           
-          // Use File.downloadFileAsync to download to the documents directory
-          const downloadedFile = await File.downloadFileAsync(MODEL_DOWNLOAD_URL, Paths.document);
+          const downloadPath = `${FileSystem.documentDirectory}${MODEL_FILENAME}`;
           
-          clearInterval(progressInterval);
-          setProgress(100);
+          const downloadResumable = FileSystem.createDownloadResumable(
+            MODEL_DOWNLOAD_URL,
+            downloadPath,
+            {},
+            (downloadProgress) => {
+              const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
+              const percentage = Math.round(progress * 100);
+              setProgress(percentage);
+              console.log('Download progress:', percentage + '%');
+            }
+          );
           
-          console.log('Model downloaded successfully to:', downloadedFile.uri);
-          console.log('File exists:', downloadedFile.exists);
+          // Store the download resumable so it can be cancelled
+          downloadResumableRef.current = downloadResumable;
           
-          // The file might have a different name from the URL, so let's rename it if needed
-          if (downloadedFile.name !== MODEL_FILENAME) {
-            console.log('Renaming file from', downloadedFile.name, 'to', MODEL_FILENAME);
-            await downloadedFile.move(modelFile);
+          const result = await downloadResumable.downloadAsync();
+          
+          // Clear the reference after download completes
+          downloadResumableRef.current = null;
+          
+          // If result is null, it might have been cancelled
+          if (!result) {
+            console.log('Download returned no result - likely cancelled');
+            setStatus('idle');
+            return;
           }
+          
+          setProgress(100);
+          console.log('Model downloaded successfully to:', result.uri);
+          
         } catch (downloadErr) {
-          clearInterval(progressInterval);
-          // The download may throw "Response body is not readable" but still succeed
+          // Clear the reference on error
+          downloadResumableRef.current = null;
+          
+          // Check if download was cancelled (component unmounted)
+          if (downloadErr instanceof Error && downloadErr.message.includes('cancelled')) {
+            console.log('Download was cancelled');
+            setStatus('idle');
+            return;
+          }
+          
           // Check if the file exists before treating as an error
           console.warn('Download threw error:', downloadErr);
           
           // Re-check if model file exists now
           const recheckFile = new File(Paths.document, MODEL_FILENAME);
           if (!recheckFile.exists) {
-            // Also check if the downloaded file exists with the URL filename
-            const urlFilename = MODEL_DOWNLOAD_URL.split('/').pop() || MODEL_FILENAME;
-            const downloadedFile = new File(Paths.document, urlFilename);
-            
-            if (downloadedFile.exists && urlFilename !== MODEL_FILENAME) {
-              console.log('Found downloaded file, renaming...');
-              await downloadedFile.move(modelFile);
-              setProgress(100);
-            } else if (!downloadedFile.exists) {
-              console.error('Download failed:', downloadErr);
-              setError(
-                downloadErr instanceof Error
-                  ? `Failed to download model: ${downloadErr.message}`
-                  : 'Failed to download model'
-              );
-              setStatus('error');
-              return;
-            }
+            console.error('Download failed:', downloadErr);
+            setError(
+              downloadErr instanceof Error
+                ? `Failed to download model: ${downloadErr.message}`
+                : 'Failed to download model'
+            );
+            setStatus('error');
+            return;
           } else {
             console.log('File exists despite error, continuing...');
             setProgress(100);
@@ -134,6 +138,8 @@ export function useTranslation() {
       console.error('Failed to initialize model:', err);
       setError(err instanceof Error ? err.message : 'Failed to load translation model');
       setStatus('error');
+    } finally {
+      isInitializingRef.current = false;
     }
   }, []);
 
@@ -156,13 +162,10 @@ export function useTranslation() {
       setStatus('translating');
 
       try {
-        const sourceLang = LANGUAGE_CODES[sourceLanguage] || sourceLanguage;
-        const targetLang = LANGUAGE_CODES[targetLanguage] || targetLanguage;
-
         // TranslateGemma prompt format based on Gemma 3 chat template
         // The model expects a specific format for translation tasks
         const prompt = `<bos><start_of_turn>user
-Translate from ${sourceLang} to ${targetLang}:
+Translate from ${sourceLanguage} to ${targetLanguage}:
 ${text}<end_of_turn>
 <start_of_turn>model
 `;
@@ -269,6 +272,18 @@ ${text}<end_of_turn>
 
   // Release the model manually
   const releaseModel = useCallback(() => {
+    // Cancel any ongoing download
+    if (downloadResumableRef.current) {
+      console.log('Cancelling translation model download...');
+      downloadResumableRef.current.pauseAsync().catch(() => {});
+      downloadResumableRef.current = null;
+    }
+    
+    // Reset initialization flag
+    if (isInitializingRef.current) {
+      isInitializingRef.current = false;
+    }
+    
     if (contextRef.current) {
       console.log('Releasing translation model...');
       contextRef.current.release();
@@ -282,6 +297,18 @@ ${text}<end_of_turn>
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Cancel any ongoing download
+      if (downloadResumableRef.current) {
+        console.log('Unmounting - cancelling translation model download...');
+        downloadResumableRef.current.pauseAsync().catch(() => {});
+        downloadResumableRef.current = null;
+      }
+      
+      // Reset initialization flag
+      if (isInitializingRef.current) {
+        isInitializingRef.current = false;
+      }
+      
       if (contextRef.current) {
         contextRef.current.release();
         contextRef.current = null;

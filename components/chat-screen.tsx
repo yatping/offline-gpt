@@ -356,7 +356,9 @@ export default function ChatScreen() {
             </View>
           )}
           <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
-            This may take a few minutes on first launch
+            {status === 'downloading'
+              ? "This may take a few minutes. Please don't close the app."
+              : 'This may take a few seconds'}
           </ThemedText>
         </ThemedView>
       </SafeAreaView>
