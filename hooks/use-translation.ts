@@ -267,6 +267,18 @@ ${text}<end_of_turn>
     [translate]
   );
 
+  // Release the model manually
+  const releaseModel = useCallback(() => {
+    if (contextRef.current) {
+      console.log('Releasing translation model...');
+      contextRef.current.release();
+      contextRef.current = null;
+      setStatus('idle');
+      setError(null);
+      setProgress(0);
+    }
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -284,6 +296,7 @@ ${text}<end_of_turn>
     initializeModel,
     translate,
     translateImage,
+    releaseModel,
     isReady: status === 'ready',
     isLoading: status === 'loading',
     isTranslating: status === 'translating',

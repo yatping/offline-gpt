@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -39,6 +40,7 @@ export default function ChatScreen() {
     progress,
     initializeModel,
     generateResponse,
+    releaseModel,
     isReady,
     isGenerating,
   } = useChatAI();
@@ -49,15 +51,26 @@ export default function ChatScreen() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
+  const hasInitializedRef = useRef(false);
   
-  // Initialize model when component mounts
-  const modelInitializedRef = useRef(false);
-  useEffect(() => {
-    if (!modelInitializedRef.current && status === 'idle') {
-      modelInitializedRef.current = true;
-      initializeModel();
-    }
-  }, [initializeModel, status]);
+  // Initialize model when screen is focused, release when unfocused
+  useFocusEffect(
+    useCallback(() => {
+      // Screen is focused - initialize model if we haven't already during this focus cycle
+      if (!hasInitializedRef.current && status === 'idle') {
+        console.log('Chat screen focused - initializing model');
+        hasInitializedRef.current = true;
+        initializeModel();
+      }
+
+      // Cleanup when screen loses focus
+      return () => {
+        console.log('Chat screen unfocused - releasing model');
+        hasInitializedRef.current = false;
+        releaseModel();
+      };
+    }, [])
+  );
 
   // Load sessions from storage on mount
   useEffect(() => {

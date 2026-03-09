@@ -1,20 +1,21 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import {
-    ExpoSpeechRecognitionModule,
-    useSpeechRecognitionEvent,
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Keyboard,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -86,16 +87,29 @@ export default function TranslateScreen() {
     setMyLanguage: setLowerLanguage,
     setOpponentLanguage: setUpperLanguage,
     initializeModel,
+    releaseModel,
   } = useTranslationContext();
 
-  // Initialize model when translate tab becomes active
-  const modelInitializedRef = useRef(false);
-  useEffect(() => {
-    if (!modelInitializedRef.current && status === 'idle') {
-      modelInitializedRef.current = true;
-      initializeModel();
-    }
-  }, [initializeModel, status]);
+  const hasInitializedRef = useRef(false);
+
+  // Initialize model when screen is focused, release when unfocused
+  useFocusEffect(
+    useCallback(() => {
+      // Screen is focused - initialize model if we haven't already during this focus cycle
+      if (!hasInitializedRef.current && status === 'idle') {
+        console.log('Translate screen focused - initializing model');
+        hasInitializedRef.current = true;
+        initializeModel();
+      }
+
+      // Cleanup when screen loses focus
+      return () => {
+        console.log('Translate screen unfocused - releasing model');
+        hasInitializedRef.current = false;
+        releaseModel();
+      };
+    }, [])
+  );
 
   // Request speech permissions on mount
   useEffect(() => {

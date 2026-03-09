@@ -189,6 +189,18 @@ export function useChatAI() {
     []
   );
 
+  // Release the model manually
+  const releaseModel = useCallback(() => {
+    if (contextRef.current) {
+      console.log('Releasing chat AI model...');
+      contextRef.current.release();
+      contextRef.current = null;
+      setStatus('idle');
+      setError(null);
+      setProgress(0);
+    }
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -205,6 +217,7 @@ export function useChatAI() {
     progress,
     initializeModel,
     generateResponse,
+    releaseModel,
     isReady: status === 'ready',
     isLoading: status === 'loading',
     isGenerating: status === 'generating',
