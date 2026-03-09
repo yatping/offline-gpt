@@ -1,5 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ExpoSpeechRecognitionModule,
@@ -191,6 +192,16 @@ export default function TranslateScreen() {
     setSourceText(translatedText);
     setTranslatedText(tempText);
   }, [sourceLanguage, targetLanguage, sourceText, translatedText]);
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copied', 'Text copied to clipboard');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      Alert.alert('Error', 'Failed to copy text');
+    }
+  };
 
   // Camera Functions
   function toggleCameraFacing() {
@@ -671,12 +682,18 @@ export default function TranslateScreen() {
 
           {translatedText.length > 0 && (
             <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => copyToClipboard(translatedText)}
+              >
                 <IconSymbol name="doc.on.doc" size={20} color={colors.tint} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
+              {/* <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => speakText(translatedText, targetLanguage.code)}
+              >
                 <IconSymbol name="speaker.wave.2" size={20} color={colors.tint} />
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           )}
         </ThemedView>
