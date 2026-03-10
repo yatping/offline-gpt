@@ -390,27 +390,29 @@ export default function ChatScreen() {
   
   return (
     <View style={styles.container}>
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView style={{ backgroundColor: colors.background }} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.menuButton}
             onPress={() => setShowSidebar(!showSidebar)}>
             <IconSymbol name="line.3.horizontal" size={24} color={colors.text} />
           </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>
-            {currentSession?.title || 'Chat'}
-          </ThemedText>
+          <View style={styles.headerTitleContainer}>
+            <ThemedText style={styles.headerTitle}>
+              {currentSession?.title || 'Chat'}
+            </ThemedText>
+          </View>
           <TouchableOpacity style={styles.newChatButton} onPress={createNewChat}>
             <IconSymbol name="square.and.pencil" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
+      </SafeAreaView>
 
-        <View style={styles.content}>
-          {/* Main Chat Area */}
-          <KeyboardAvoidingView
-            style={styles.chatArea}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={90}>
+      <KeyboardAvoidingView 
+        style={[styles.content, { backgroundColor: colors.background }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}>
+        <View style={styles.chatArea}>
             <ScrollView 
               ref={scrollViewRef}
               style={styles.messagesContainer} 
@@ -459,7 +461,7 @@ export default function ChatScreen() {
                   styles.input,
                   {
                     color: colors.text,
-                    backgroundColor: colors.icon + '10',
+                    backgroundColor: colorScheme === 'dark' ? '#1f2022' : colors.icon + '10',
                   },
                 ]}
                 placeholder="Type a message..."
@@ -483,9 +485,8 @@ export default function ChatScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
-        </View>
-      </SafeAreaView>
+          </View>
+        </KeyboardAvoidingView>
 
       {/* Sidebar - positioned to cover entire screen including bottom bar and notch */}
       {showSidebar && (
@@ -606,19 +607,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: 56,
   },
   menuButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'center',
   },
   newChatButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,

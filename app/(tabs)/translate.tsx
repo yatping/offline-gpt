@@ -604,7 +604,7 @@ export default function TranslateScreen() {
           </ThemedText>
         )}
 
-        <ThemedView style={[styles.section, { borderColor: colors.icon + '30', backgroundColor: '#fff' }]}>
+        <ThemedView style={[styles.section, { borderColor: colors.icon + '30', backgroundColor: colorScheme === 'dark' ? '#1f2022' : '#fff' }]}>
           <TouchableOpacity
             style={styles.languageSelector}
             onPress={() => {
@@ -622,7 +622,7 @@ export default function TranslateScreen() {
               styles.textInput,
               {
                 color: colors.text,
-                backgroundColor: '#fff',
+                backgroundColor: colorScheme === 'dark' ? '#1f2022' : '#fff',
               },
             ]}
             placeholder="Enter text to translate..."
@@ -653,7 +653,7 @@ export default function TranslateScreen() {
           </TouchableOpacity>
         </View>
 
-        <ThemedView style={[styles.section, styles.targetSection, { borderColor: colors.icon + '30', backgroundColor: '#fff' }]}>
+        <ThemedView style={[styles.section, styles.targetSection, { borderColor: colors.icon + '30', backgroundColor: colorScheme === 'dark' ? '#1f2022' : '#fff' }]}>
           <TouchableOpacity
             style={styles.languageSelector}
             onPress={() => {
@@ -892,7 +892,7 @@ export default function TranslateScreen() {
       <ThemedView
         style={[
           styles.chatSection,
-          { borderColor: colors.icon + '30', backgroundColor: '#fff' },
+          { borderColor: colors.icon + '30', backgroundColor: colorScheme === 'dark' ? '#1f2022' : '#fff' },
           isUpsideDown && styles.upsideDown,
         ]}>
         <View style={styles.controls}>
