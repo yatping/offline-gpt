@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import 'react-native-reanimated';
 
+import { DownloadManagerProvider } from '@/contexts/download-manager-context';
 import { TranslationProvider, useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -26,9 +27,11 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <TranslationProvider>
-        <AppContent />
-      </TranslationProvider>
+      <DownloadManagerProvider>
+        <TranslationProvider>
+          <AppContent />
+        </TranslationProvider>
+      </DownloadManagerProvider>
     </ThemeProvider>
   );
 }

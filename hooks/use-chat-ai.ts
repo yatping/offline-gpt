@@ -1,11 +1,9 @@
 import { File, Paths } from 'expo-file-system';
-import * as FileSystem from 'expo-file-system/legacy';
 import { initLlama, LlamaContext } from 'llama.rn';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import { useDownloadManager } from '../contexts/download-manager-context';
 
-// Model download URL from HuggingFace
-const MODEL_DOWNLOAD_URL = 'https://holfun.com/llama-3.2-1b-instruct-q8_0.gguf';
 const MODEL_FILENAME = 'llama-3.2-1b-instruct-q8_0.gguf';
 
 export type ChatAIStatus = 'idle' | 'loading' | 'ready' | 'generating' | 'error' | 'downloading';
@@ -18,10 +16,9 @@ export type ChatMessage = {
 export function useChatAI() {
   const [status, setStatus] = useState<ChatAIStatus>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
   const contextRef = useRef<LlamaContext | null>(null);
   const isInitializingRef = useRef(false);
-  const downloadResumableRef = useRef<FileSystem.DownloadResumable | null>(null);
+  const downloadManager = useDownloadManager();
 
   // Initialize the model
   const initializeModel = useCallback(async () => {
@@ -36,9 +33,7 @@ export function useChatAI() {
 
     try {
       isInitializingRef.current = true;
-      setStatus('loading');
       setError(null);
-      setProgress(0);
 
       const modelFile = new File(Paths.document, MODEL_FILENAME);
       
@@ -46,72 +41,19 @@ export function useChatAI() {
       if (!modelFile.exists) {
         console.log('Chat AI model not found, starting download...');
         setStatus('downloading');
+        await downloadManager.downloadModel('chat');
         
-        try {
-          // Download the model from HuggingFace with real progress tracking
-          console.log('Downloading chat AI model from:', MODEL_DOWNLOAD_URL);
-          
-          const downloadPath = `${FileSystem.documentDirectory}${MODEL_FILENAME}`;
-          
-          const downloadResumable = FileSystem.createDownloadResumable(
-            MODEL_DOWNLOAD_URL,
-            downloadPath,
-            {},
-            (downloadProgress) => {
-              const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
-              const percentage = Math.round(progress * 100);
-              setProgress(percentage);
-              console.log('Download progress:', percentage + '%');
-            }
-          );
-          
-          // Store the download resumable so it can be cancelled
-          downloadResumableRef.current = downloadResumable;
-          
-          const result = await downloadResumable.downloadAsync();
-          
-          // Clear the reference after download completes
-          downloadResumableRef.current = null;
-          
-          // If result is null, it might have been cancelled
-          if (!result) {
-            console.log('Download returned no result - likely cancelled');
-            setStatus('idle');
-            return;
-          }
-          
-          setProgress(100);
-          console.log('Chat AI model downloaded successfully to:', result.uri);
-          
-        } catch (downloadErr) {
-          // Clear the reference on error
-          downloadResumableRef.current = null;
-          
-          // Check if download was cancelled (component unmounted)
-          if (downloadErr instanceof Error && downloadErr.message.includes('cancelled')) {
-            console.log('Download was cancelled');
-            setStatus('idle');
-            return;
-          }
-          
-          // Check if the file exists before treating as an error
-          console.warn('Download threw error:', downloadErr);
-          
-          // Re-check if model file exists now
-          const recheckFile = new File(Paths.document, MODEL_FILENAME);
-          if (!recheckFile.exists) {
-            console.error('Download failed:', downloadErr);
-            setError(
-              downloadErr instanceof Error
-                ? `Failed to download chat AI model: ${downloadErr.message}`
-                : 'Failed to download chat AI model'
-            );
-            setStatus('error');
-            return;
-          } else {
-            console.log('File exists despite error, continuing...');
-            setProgress(100);
-          }
+        // Check download result
+        if (downloadManager.chatModel.status === 'error') {
+          setError(downloadManager.chatModel.error || 'Failed to download chat AI model');
+          setStatus('error');
+          return;
+        }
+        
+        if (!new File(Paths.document, MODEL_FILENAME).exists) {
+          setError('Model download was cancelled or incomplete');
+          setStatus('idle');
+          return;
         }
       }
 
@@ -152,10 +94,7 @@ export function useChatAI() {
           n_batch: 512,
         },
         (loadProgress) => {
-          // Normalize progress value and cap at 100%
-          const percentage = Math.min(100, loadProgress > 1 ? Math.round(loadProgress) : Math.round(loadProgress * 100));
-          setProgress(percentage);
-          console.log('Chat AI model loading progress:', percentage + '%', '(raw:', loadProgress + ')');
+          console.log('Chat AI model loading progress:', loadProgress);
         }
       );
 
@@ -174,7 +113,7 @@ export function useChatAI() {
     } finally {
       isInitializingRef.current = false;
     }
-  }, []);
+  }, [downloadManager]);
 
   // Generate chat response
   const generateResponse = useCallback(
@@ -240,13 +179,6 @@ export function useChatAI() {
 
   // Release the model manually
   const releaseModel = useCallback(() => {
-    // Cancel any ongoing download
-    if (downloadResumableRef.current) {
-      console.log('Cancelling chat AI model download...');
-      downloadResumableRef.current.pauseAsync().catch(() => {});
-      downloadResumableRef.current = null;
-    }
-    
     // Reset initialization flag
     if (isInitializingRef.current) {
       isInitializingRef.current = false;
@@ -258,31 +190,27 @@ export function useChatAI() {
       contextRef.current = null;
       setStatus('idle');
       setError(null);
-      setProgress(0);
     }
   }, []);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Cancel any ongoing download
-      if (downloadResumableRef.current) {
-        console.log('Unmounting - cancelling chat AI model download...');
-        downloadResumableRef.current.pauseAsync().catch(() => {});
-        downloadResumableRef.current = null;
-      }
-      
       // Reset initialization flag
       if (isInitializingRef.current) {
         isInitializingRef.current = false;
       }
       
+      // Release model context (but don't cancel download)
       if (contextRef.current) {
         contextRef.current.release();
         contextRef.current = null;
       }
     };
   }, []);
+
+  // Compute progress from download manager or local status
+  const progress = status === 'downloading' ? downloadManager.chatModel.progress : 0;
 
   return {
     status,
