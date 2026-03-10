@@ -157,7 +157,7 @@ ${text}<end_of_turn>
       try {
         // Step 1: Extract text from image using OCR
         console.log('Extracting text from image:', imageUri);
-        const result = await TextRecognition.recognize(imageUri);
+        const result: unknown = await TextRecognition.recognize(imageUri);
         
         console.log('OCR raw result:', result);
         
