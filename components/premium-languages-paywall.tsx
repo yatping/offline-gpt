@@ -1,11 +1,11 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-    getProducts,
-    hasPurchasedPremiumLanguages,
-    initializePurchases,
-    purchasePremiumLanguages,
-    restorePurchases,
+  getProducts,
+  hasPurchasedPremiumLanguages,
+  initializePurchases,
+  purchasePremiumLanguages,
+  restorePurchases,
 } from '@/utils/purchase-manager';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet } from 'react-native';
@@ -44,8 +44,8 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
   const handlePurchase = async () => {
     setLoading(true);
     try {
-      const success = await purchasePremiumLanguages();
-      if (success) {
+      const result = await purchasePremiumLanguages();
+      if (result.success) {
         Alert.alert(
           'Success!',
           'You now have access to all premium languages!',
@@ -61,10 +61,13 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
           ]
         );
       } else {
-        Alert.alert('Purchase Failed', 'Please try again later.');
+        Alert.alert(
+          'Purchase Failed', 
+          result.error || 'Please try again later.\n\nCheck the console logs for more details.'
+        );
       }
-    } catch (error) {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
