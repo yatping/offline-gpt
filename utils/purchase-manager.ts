@@ -59,10 +59,21 @@ export const disconnectPurchases = async (): Promise<void> => {
 };
 
 // Get available products
-export const getProducts = async (): Promise<InAppPurchases.InAppPurchase[]> => {
+export const getProducts = async (): Promise<InAppPurchases.IAPItemDetails[]> => {
   try {
-    const { results } = await InAppPurchases.getProductsAsync([PRODUCT_ID]);
-    return results || [];
+    const { results, responseCode } = await InAppPurchases.getProductsAsync([PRODUCT_ID]);
+    console.log('Products response code:', responseCode);
+    console.log('Products found:', JSON.stringify(results, null, 2));
+    
+    if (responseCode === InAppPurchases.IAPResponseCode.OK && results) {
+      if (results.length === 0) {
+        console.warn('⚠️ No products found! Product ID might be wrong or product not ready yet.');
+      }
+      return results;
+    } else {
+      console.error('Failed to fetch products, response code:', responseCode);
+      return [];
+    }
   } catch (error) {
     console.error('Failed to get products:', error);
     return [];
@@ -70,21 +81,42 @@ export const getProducts = async (): Promise<InAppPurchases.InAppPurchase[]> => 
 };
 
 // Purchase premium languages
-export const purchasePremiumLanguages = async (): Promise<boolean> => {
+export const purchasePremiumLanguages = async (): Promise<{ success: boolean; error?: string }> => {
   try {
+    // MUST query products from store first before purchasing
+    console.log('Querying products before purchase...');
+    const products = await getProducts();
+    
+    if (products.length === 0) {
+      return { success: false, error: 'Product not available. Please try again later.' };
+    }
+    
+    console.log('Products loaded, attempting purchase...');
+    // purchaseItemAsync returns void and triggers the purchase flow
+    // Success/failure is handled through setPurchaseListener
     await InAppPurchases.purchaseItemAsync(PRODUCT_ID);
+    
+    // If we reach here without throwing, the purchase was initiated successfully
+    // The actual purchase confirmation comes through the listener
     await setPremiumLanguagesPurchased();
-    return true;
-  } catch (error) {
-    console.error('Purchase failed:', error);
-    return false;
+    return { success: true };
+  } catch (error: any) {
+    console.error('Purchase error:', error);
+    console.error('Error details:', JSON.stringify(error, null, 2));
+    
+    // Check if user cancelled
+    if (error?.message?.includes('cancel') || error?.code === 'USER_CANCELLED') {
+      return { success: false, error: 'Purchase was cancelled' };
+    }
+    
+    return { success: false, error: error?.message || 'Purchase failed' };
   }
 };
 
 // Restore purchases
 export const restorePurchases = async (): Promise<boolean> => {
   try {
-    const { results } = await InAppPurchases.getPurchaseHistoryAsync();
+    const { results } = await InAppPurchases.getPurchaseHistoryAsync({ useGooglePlayCache: false });
     
     if (results) {
       const hasPremiumPurchase = results.some(
@@ -107,9 +139,9 @@ export const restorePurchases = async (): Promise<boolean> => {
 export const setupPurchaseListener = (
   onPurchaseUpdate: (purchase: InAppPurchases.InAppPurchase) => void
 ) => {
-  InAppPurchases.setPurchaseListener(({ responseCode, results }) => {
-    if (responseCode === InAppPurchases.IAPResponseCode.OK) {
-      results?.forEach((purchase) => {
+  InAppPurchases.setPurchaseListener((result: InAppPurchases.IAPQueryResponse<InAppPurchases.InAppPurchase>) => {
+    if (result.responseCode === InAppPurchases.IAPResponseCode.OK && result.results) {
+      result.results.forEach((purchase: InAppPurchases.InAppPurchase) => {
         if (purchase.productId === PRODUCT_ID) {
           setPremiumLanguagesPurchased();
           onPurchaseUpdate(purchase);
