@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 import { DownloadManagerProvider } from '@/contexts/download-manager-context';
 import { TranslationProvider, useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOTAUpdates } from '@/hooks/use-ota-updates';
 
 function AppContent() {
   const colorScheme = useColorScheme();
@@ -24,6 +25,9 @@ function AppContent() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  
+  // Initialize OTA update checking
+  useOTAUpdates();
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
