@@ -1,79 +1,42 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const LANGUAGES = [
-  { code: 'en', name: 'English', isFree: true },
-  { code: 'es', name: 'Spanish', isFree: true },
-  { code: 'ar', name: 'Arabic', isFree: false },
-  { code: 'bn', name: 'Bengali', isFree: false },
-  { code: 'bg', name: 'Bulgarian', isFree: false },
-  { code: 'ca', name: 'Catalan', isFree: false },
-  { code: 'zh', name: 'Chinese', isFree: false },
-  { code: 'hr', name: 'Croatian', isFree: false },
-  { code: 'cs', name: 'Czech', isFree: false },
-  { code: 'da', name: 'Danish', isFree: false },
-  { code: 'nl', name: 'Dutch', isFree: false },
-  { code: 'fi', name: 'Finnish', isFree: false },
-  { code: 'fr', name: 'French', isFree: false },
-  { code: 'de', name: 'German', isFree: false },
-  { code: 'el', name: 'Greek', isFree: false },
-  { code: 'he', name: 'Hebrew', isFree: false },
-  { code: 'hi', name: 'Hindi', isFree: false },
-  { code: 'hu', name: 'Hungarian', isFree: false },
-  { code: 'id', name: 'Indonesian', isFree: false },
-  { code: 'it', name: 'Italian', isFree: false },
-  { code: 'ja', name: 'Japanese', isFree: false },
-  { code: 'ko', name: 'Korean', isFree: false },
-  { code: 'no', name: 'Norwegian', isFree: false },
-  { code: 'pl', name: 'Polish', isFree: false },
-  { code: 'pt', name: 'Portuguese', isFree: false },
-  { code: 'ro', name: 'Romanian', isFree: false },
-  { code: 'ru', name: 'Russian', isFree: false },
-  { code: 'sk', name: 'Slovak', isFree: false },
-  { code: 'sv', name: 'Swedish', isFree: false },
-  { code: 'th', name: 'Thai', isFree: false },
-  { code: 'tr', name: 'Turkish', isFree: false },
-  { code: 'uk', name: 'Ukrainian', isFree: false },
-  { code: 'vi', name: 'Vietnamese', isFree: false },
-];
-
-export const SPEECH_LANGUAGES = [
-  { code: 'en-US', name: 'English' },
-  { code: 'es-ES', name: 'Spanish' },
-  { code: 'ar-SA', name: 'Arabic' },
-  { code: 'bn-IN', name: 'Bengali' },
-  { code: 'bg-BG', name: 'Bulgarian' },
-  { code: 'ca-ES', name: 'Catalan' },
-  { code: 'zh-CN', name: 'Chinese' },
-  { code: 'hr-HR', name: 'Croatian' },
-  { code: 'cs-CZ', name: 'Czech' },
-  { code: 'da-DK', name: 'Danish' },
-  { code: 'nl-NL', name: 'Dutch' },
-  { code: 'fi-FI', name: 'Finnish' },
-  { code: 'fr-FR', name: 'French' },
-  { code: 'de-DE', name: 'German' },
-  { code: 'el-GR', name: 'Greek' },
-  { code: 'he-IL', name: 'Hebrew' },
-  { code: 'hi-IN', name: 'Hindi' },
-  { code: 'hu-HU', name: 'Hungarian' },
-  { code: 'id-ID', name: 'Indonesian' },
-  { code: 'it-IT', name: 'Italian' },
-  { code: 'ja-JP', name: 'Japanese' },
-  { code: 'ko-KR', name: 'Korean' },
-  { code: 'no-NO', name: 'Norwegian' },
-  { code: 'pl-PL', name: 'Polish' },
-  { code: 'pt-PT', name: 'Portuguese' },
-  { code: 'ro-RO', name: 'Romanian' },
-  { code: 'ru-RU', name: 'Russian' },
-  { code: 'sk-SK', name: 'Slovak' },
-  { code: 'sv-SE', name: 'Swedish' },
-  { code: 'th-TH', name: 'Thai' },
-  { code: 'tr-TR', name: 'Turkish' },
-  { code: 'uk-UA', name: 'Ukrainian' },
-  { code: 'vi-VN', name: 'Vietnamese' },
+  { code: 'en', speechCode: 'en-US', name: 'English', isFree: true },
+  { code: 'es', speechCode: 'es-ES', name: 'Spanish', isFree: true },
+  { code: 'ar', speechCode: 'ar-SA', name: 'Arabic', isFree: false },
+  { code: 'bn', speechCode: 'bn-IN', name: 'Bengali', isFree: false },
+  { code: 'bg', speechCode: 'bg-BG', name: 'Bulgarian', isFree: false },
+  { code: 'ca', speechCode: 'ca-ES', name: 'Catalan', isFree: false },
+  { code: 'zh', speechCode: 'zh-CN', name: 'Chinese', isFree: true },
+  { code: 'hr', speechCode: 'hr-HR', name: 'Croatian', isFree: false },
+  { code: 'cs', speechCode: 'cs-CZ', name: 'Czech', isFree: false },
+  { code: 'da', speechCode: 'da-DK', name: 'Danish', isFree: false },
+  { code: 'nl', speechCode: 'nl-NL', name: 'Dutch', isFree: false },
+  { code: 'fi', speechCode: 'fi-FI', name: 'Finnish', isFree: false },
+  { code: 'fr', speechCode: 'fr-FR', name: 'French', isFree: true },
+  { code: 'de', speechCode: 'de-DE', name: 'German', isFree: false },
+  { code: 'el', speechCode: 'el-GR', name: 'Greek', isFree: false },
+  { code: 'he', speechCode: 'he-IL', name: 'Hebrew', isFree: false },
+  { code: 'hi', speechCode: 'hi-IN', name: 'Hindi', isFree: false },
+  { code: 'hu', speechCode: 'hu-HU', name: 'Hungarian', isFree: false },
+  { code: 'id', speechCode: 'id-ID', name: 'Indonesian', isFree: false },
+  { code: 'it', speechCode: 'it-IT', name: 'Italian', isFree: false },
+  { code: 'ja', speechCode: 'ja-JP', name: 'Japanese', isFree: true },
+  { code: 'ko', speechCode: 'ko-KR', name: 'Korean', isFree: false },
+  { code: 'no', speechCode: 'no-NO', name: 'Norwegian', isFree: false },
+  { code: 'pl', speechCode: 'pl-PL', name: 'Polish', isFree: false },
+  { code: 'pt', speechCode: 'pt-PT', name: 'Portuguese', isFree: false },
+  { code: 'ro', speechCode: 'ro-RO', name: 'Romanian', isFree: false },
+  { code: 'ru', speechCode: 'ru-RU', name: 'Russian', isFree: false },
+  { code: 'sk', speechCode: 'sk-SK', name: 'Slovak', isFree: false },
+  { code: 'sv', speechCode: 'sv-SE', name: 'Swedish', isFree: false },
+  { code: 'th', speechCode: 'th-TH', name: 'Thai', isFree: false },
+  { code: 'tr', speechCode: 'tr-TR', name: 'Turkish', isFree: false },
+  { code: 'uk', speechCode: 'uk-UA', name: 'Ukrainian', isFree: false },
+  { code: 'vi', speechCode: 'vi-VN', name: 'Vietnamese', isFree: false },
 ];
 
 export type Language = typeof LANGUAGES[number];
-export type SpeechLanguage = typeof SPEECH_LANGUAGES[number];
 
 // Storage keys
 // Note: Target language is shared between index/camera screens and conversation opponent
@@ -86,21 +49,23 @@ const STORAGE_KEYS = {
 // Default languages
 export const DEFAULT_SOURCE_LANGUAGE = LANGUAGES[0]; // English
 export const DEFAULT_TARGET_LANGUAGE = LANGUAGES[1]; // Spanish
-export const DEFAULT_MY_LANGUAGE = SPEECH_LANGUAGES[0]; // English
-export const DEFAULT_OPPONENT_LANGUAGE = SPEECH_LANGUAGES[1]; // Spanish
+export const DEFAULT_MY_LANGUAGE = LANGUAGES[0]; // English (for speech)
+export const DEFAULT_OPPONENT_LANGUAGE = LANGUAGES[1]; // Spanish (for speech)
 
 // Get language by code
 export const getLanguageByCode = (code: string): Language => {
   return LANGUAGES.find((lang) => lang.code === code) || DEFAULT_SOURCE_LANGUAGE;
 };
 
-export const getSpeechLanguageByCode = (code: string): SpeechLanguage => {
-  // First try exact match (e.g., 'en-US')
-  let match = SPEECH_LANGUAGES.find((lang) => lang.code === code);
+// Get language by speech code (e.g., 'en-US' -> English language object)
+export const getLanguageBySpeechCode = (speechCode: string): Language => {
+  // First try exact match
+  let match = LANGUAGES.find((lang) => lang.speechCode === speechCode);
   if (match) return match;
   
-  // If not found, try matching base code (e.g., 'en' -> 'en-US')
-  match = SPEECH_LANGUAGES.find((lang) => lang.code.startsWith(code + '-'));
+  // If not found, try matching base code (e.g., 'en' from 'en-US')
+  const baseCode = speechCode.split('-')[0];
+  match = LANGUAGES.find((lang) => lang.code === baseCode);
   return match || DEFAULT_MY_LANGUAGE;
 };
 
@@ -150,9 +115,9 @@ export const loadTargetLanguage = async (): Promise<Language> => {
 
 // Save my language (for conversation screen - lower section)
 // This shares the same storage as source language for consistency
-export const saveMyLanguage = async (language: SpeechLanguage) => {
+export const saveMyLanguage = async (language: Language) => {
   try {
-    await AsyncStorage.setItem(STORAGE_KEYS.SOURCE_LANGUAGE, language.code.split('-')[0]);
+    await AsyncStorage.setItem(STORAGE_KEYS.SOURCE_LANGUAGE, language.code);
   } catch (error) {
     console.error('Failed to save my language:', error);
   }
@@ -160,12 +125,11 @@ export const saveMyLanguage = async (language: SpeechLanguage) => {
 
 // Load my language (for conversation screen - lower section)
 // This shares the same storage as source language for consistency
-export const loadMyLanguage = async (): Promise<SpeechLanguage> => {
+export const loadMyLanguage = async (): Promise<Language> => {
   try {
     const code = await AsyncStorage.getItem(STORAGE_KEYS.SOURCE_LANGUAGE);
     if (code) {
-      // Convert base language code to speech locale (e.g., 'en' -> 'en-US')
-      return getSpeechLanguageByCode(code);
+      return getLanguageByCode(code);
     }
   } catch (error) {
     console.error('Failed to load my language:', error);
@@ -175,9 +139,9 @@ export const loadMyLanguage = async (): Promise<SpeechLanguage> => {
 
 // Save opponent language (for conversation screen - upper section)
 // This shares the same storage as target language for consistency
-export const saveOpponentLanguage = async (language: SpeechLanguage) => {
+export const saveOpponentLanguage = async (language: Language) => {
   try {
-    await AsyncStorage.setItem(STORAGE_KEYS.TARGET_LANGUAGE, language.code.split('-')[0]);
+    await AsyncStorage.setItem(STORAGE_KEYS.TARGET_LANGUAGE, language.code);
   } catch (error) {
     console.error('Failed to save opponent language:', error);
   }
@@ -185,12 +149,11 @@ export const saveOpponentLanguage = async (language: SpeechLanguage) => {
 
 // Load opponent language (for conversation screen - upper section)
 // This shares the same storage as target language for consistency
-export const loadOpponentLanguage = async (): Promise<SpeechLanguage> => {
+export const loadOpponentLanguage = async (): Promise<Language> => {
   try {
     const code = await AsyncStorage.getItem(STORAGE_KEYS.TARGET_LANGUAGE);
     if (code) {
-      // Convert base language code to speech locale (e.g., 'es' -> 'es-ES')
-      return getSpeechLanguageByCode(code);
+      return getLanguageByCode(code);
     }
   } catch (error) {
     console.error('Failed to load opponent language:', error);

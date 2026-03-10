@@ -20,13 +20,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LanguagePicker } from '@/components/language-picker';
+import { PremiumLanguagesPaywall } from '@/components/premium-languages-paywall';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { LANGUAGES, SPEECH_LANGUAGES } from '@/utils/language-preferences';
+import { LANGUAGES } from '@/utils/language-preferences';
 
 type TranslateMode = 'translate' | 'camera' | 'conversation';
 
@@ -48,6 +50,7 @@ export default function TranslateScreen() {
   const [translatedText, setTranslatedText] = useState('');
   const [showSourcePicker, setShowSourcePicker] = useState(false);
   const [showTargetPicker, setShowTargetPicker] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // Camera State
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -339,11 +342,8 @@ export default function TranslateScreen() {
     try {
       const sourceLanguage = section === 'upper' ? upperLanguage.code : lowerLanguage.code;
       const targetLanguage = section === 'upper' ? lowerLanguage.code : upperLanguage.code;
-      
-      const sourceLang = sourceLanguage.split('-')[0];
-      const targetLang = targetLanguage.split('-')[0];
 
-      const translatedText = await translate(text, sourceLang, targetLang);
+      const translatedText = await translate(text, sourceLanguage, targetLanguage);
       
       const translatedMessage: Message = {
         id: `${Date.now()}-translated`,
@@ -376,7 +376,7 @@ export default function TranslateScreen() {
           }
         } else {
           await ExpoSpeechRecognitionModule.start({
-            lang: upperLanguage.code,
+            lang: upperLanguage.speechCode,
             interimResults: true,
             maxAlternatives: 1,
             continuous: false,
@@ -401,7 +401,7 @@ export default function TranslateScreen() {
           }
         } else {
           await ExpoSpeechRecognitionModule.start({
-            lang: lowerLanguage.code,
+            lang: lowerLanguage.speechCode,
             interimResults: true,
             maxAlternatives: 1,
             continuous: false,
@@ -494,73 +494,6 @@ export default function TranslateScreen() {
       </TouchableOpacity>
     </View>
   );
-
-  // Language Pickers
-  const TextLanguagePicker = ({
-    visible,
-    onSelect,
-    onClose,
-  }: {
-    visible: boolean;
-    onSelect: (lang: typeof LANGUAGES[0]) => void;
-    onClose: () => void;
-  }) => {
-    if (!visible) return null;
-
-    return (
-      <View style={[styles.pickerOverlay, { backgroundColor: colors.background }]} onTouchEnd={onClose}>
-        <ScrollView style={styles.pickerScroll}>
-          {LANGUAGES.map((lang) => (
-            <TouchableOpacity
-              key={lang.code}
-              style={[styles.pickerItem, { borderBottomColor: colors.icon + '30' }]}
-              onPress={() => {
-                onSelect(lang);
-                onClose();
-              }}>
-              <ThemedText style={styles.pickerItemText}>{lang.name}</ThemedText>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <TouchableOpacity style={styles.pickerClose} onPress={onClose}>
-          <ThemedText style={{ color: colors.tint }}>Close</ThemedText>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const SpeechLanguagePicker = ({
-    visible,
-    onSelect,
-    onClose,
-  }: {
-    visible: boolean;
-    onSelect: (lang: typeof SPEECH_LANGUAGES[0]) => void;
-    onClose: () => void;
-  }) => {
-    if (!visible) return null;
-
-    return (
-      <View style={[styles.pickerOverlay, { backgroundColor: colors.background }]}>
-        <ScrollView style={styles.pickerScroll}>
-          {SPEECH_LANGUAGES.map((lang) => (
-            <TouchableOpacity
-              key={lang.code}
-              style={[styles.pickerItem, { borderBottomColor: colors.icon + '30' }]}
-              onPress={() => {
-                onSelect(lang);
-                onClose();
-              }}>
-              <ThemedText style={styles.pickerItemText}>{lang.name}</ThemedText>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <TouchableOpacity style={styles.pickerClose} onPress={onClose}>
-          <ThemedText style={{ color: colors.tint }}>Close</ThemedText>
-        </TouchableOpacity>
-      </View>
-    );
-  };
 
   // Render Text Translation Mode
   const renderTextTranslateMode = () => {
@@ -698,15 +631,34 @@ export default function TranslateScreen() {
           )}
         </ThemedView>
 
-        <TextLanguagePicker
+        <LanguagePicker
           visible={showSourcePicker}
+          selectedLanguage={sourceLanguage}
+          languages={LANGUAGES}
           onSelect={setSourceLanguage}
           onClose={() => setShowSourcePicker(false)}
+          onShowPaywall={() => {
+            setShowSourcePicker(false);
+            setShowPaywall(true);
+          }}
         />
-        <TextLanguagePicker
+        <LanguagePicker
           visible={showTargetPicker}
+          selectedLanguage={targetLanguage}
+          languages={LANGUAGES}
           onSelect={setTargetLanguage}
           onClose={() => setShowTargetPicker(false)}
+          onShowPaywall={() => {
+            setShowTargetPicker(false);
+            setShowPaywall(true);
+          }}
+        />
+        <PremiumLanguagesPaywall
+          visible={showPaywall}
+          onClose={() => setShowPaywall(false)}
+          onPurchaseComplete={() => {
+            setShowPaywall(false);
+          }}
         />
       </View>
     </Pressable>
@@ -816,10 +768,16 @@ export default function TranslateScreen() {
               <ThemedText style={styles.buttonText}>Take Another Photo</ThemedText>
             </TouchableOpacity>
           </ScrollView>
-          <TextLanguagePicker
+          <LanguagePicker
             visible={showCameraLanguagePicker}
+            selectedLanguage={targetLanguage}
+            languages={LANGUAGES}
             onSelect={setTargetLanguage}
             onClose={() => setShowCameraLanguagePicker(false)}
+            onShowPaywall={() => {
+              setShowCameraLanguagePicker(false);
+              setShowPaywall(true);
+            }}
           />
         </View>
       );
@@ -878,7 +836,7 @@ export default function TranslateScreen() {
     currentTranscript = '',
   }: {
     allMessages: Message[];
-    language: typeof SPEECH_LANGUAGES[0];
+    language: typeof LANGUAGES[0];
     onLanguagePress: () => void;
     onRecordPress: () => void;
     isRecording: boolean;
@@ -1038,15 +996,27 @@ export default function TranslateScreen() {
           currentTranscript={currentLowerTranscript}
         />
 
-        <SpeechLanguagePicker
+        <LanguagePicker
           visible={showUpperLanguagePicker}
+          selectedLanguage={upperLanguage}
+          languages={LANGUAGES}
           onSelect={setUpperLanguage}
           onClose={() => setShowUpperLanguagePicker(false)}
+          onShowPaywall={() => {
+            setShowUpperLanguagePicker(false);
+            setShowPaywall(true);
+          }}
         />
-        <SpeechLanguagePicker
+        <LanguagePicker
           visible={showLowerLanguagePicker}
+          selectedLanguage={lowerLanguage}
+          languages={LANGUAGES}
           onSelect={setLowerLanguage}
           onClose={() => setShowLowerLanguagePicker(false)}
+          onShowPaywall={() => {
+            setShowLowerLanguagePicker(false);
+            setShowPaywall(true);
+          }}
         />
       </View>
     );
@@ -1182,30 +1152,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     padding: 8,
-  },
-  pickerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 100,
-    paddingTop: 60,
-  },
-  pickerScroll: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  pickerItem: {
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  pickerItemText: {
-    fontSize: 18,
-  },
-  pickerClose: {
-    padding: 20,
-    alignItems: 'center',
   },
   translatingIndicator: {
     flexDirection: 'row',

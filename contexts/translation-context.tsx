@@ -1,19 +1,18 @@
 import { useTranslation } from '@/hooks/use-translation';
 import {
-  DEFAULT_MY_LANGUAGE,
-  DEFAULT_OPPONENT_LANGUAGE,
-  DEFAULT_SOURCE_LANGUAGE,
-  DEFAULT_TARGET_LANGUAGE,
-  Language,
-  loadMyLanguage,
-  loadOpponentLanguage,
-  loadSourceLanguage,
-  loadTargetLanguage,
-  saveMyLanguage,
-  saveOpponentLanguage,
-  saveSourceLanguage,
-  saveTargetLanguage,
-  SpeechLanguage,
+    DEFAULT_MY_LANGUAGE,
+    DEFAULT_OPPONENT_LANGUAGE,
+    DEFAULT_SOURCE_LANGUAGE,
+    DEFAULT_TARGET_LANGUAGE,
+    Language,
+    loadMyLanguage,
+    loadOpponentLanguage,
+    loadSourceLanguage,
+    loadTargetLanguage,
+    saveMyLanguage,
+    saveOpponentLanguage,
+    saveSourceLanguage,
+    saveTargetLanguage,
 } from '@/utils/language-preferences';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
@@ -25,10 +24,10 @@ type TranslationContextType = ReturnType<typeof useTranslation> & {
   setTargetLanguage: (language: Language) => void;
   
   // Conversation languages (conversation screen)
-  myLanguage: SpeechLanguage;
-  opponentLanguage: SpeechLanguage;
-  setMyLanguage: (language: SpeechLanguage) => void;
-  setOpponentLanguage: (language: SpeechLanguage) => void;
+  myLanguage: Language;
+  opponentLanguage: Language;
+  setMyLanguage: (language: Language) => void;
+  setOpponentLanguage: (language: Language) => void;
 };
 
 const TranslationContext = createContext<TranslationContextType | null>(null);
@@ -39,8 +38,8 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   // Language preferences state
   const [sourceLanguage, setSourceLanguageState] = useState<Language>(DEFAULT_SOURCE_LANGUAGE);
   const [targetLanguage, setTargetLanguageState] = useState<Language>(DEFAULT_TARGET_LANGUAGE);
-  const [myLanguage, setMyLanguageState] = useState<SpeechLanguage>(DEFAULT_MY_LANGUAGE);
-  const [opponentLanguage, setOpponentLanguageState] = useState<SpeechLanguage>(DEFAULT_OPPONENT_LANGUAGE);
+  const [myLanguage, setMyLanguageState] = useState<Language>(DEFAULT_MY_LANGUAGE);
+  const [opponentLanguage, setOpponentLanguageState] = useState<Language>(DEFAULT_OPPONENT_LANGUAGE);
 
   // Don't initialize the model automatically - let components trigger it when needed
   // useEffect(() => {
@@ -112,12 +111,12 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     saveTargetLanguage(language);
   };
 
-  const setMyLanguage = (language: SpeechLanguage) => {
+  const setMyLanguage = (language: Language) => {
     setMyLanguageState(language);
     saveMyLanguage(language);
   };
 
-  const setOpponentLanguage = (language: SpeechLanguage) => {
+  const setOpponentLanguage = (language: Language) => {
     setOpponentLanguageState(language);
     saveOpponentLanguage(language);
   };

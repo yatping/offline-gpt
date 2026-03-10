@@ -1,14 +1,16 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Language, LANGUAGES } from '@/utils/language-preferences';
+import { Language } from '@/utils/language-preferences';
 import { hasPurchasedPremiumLanguages } from '@/utils/purchase-manager';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
   visible: boolean;
   selectedLanguage: Language;
+  languages: Language[];
   onSelect: (language: Language) => void;
   onClose: () => void;
   onShowPaywall: () => void;
@@ -17,11 +19,13 @@ type Props = {
 export function LanguagePicker({
   visible,
   selectedLanguage,
+  languages,
   onSelect,
   onClose,
   onShowPaywall,
 }: Props) {
   const [hasPremium, setHasPremium] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const checkPremium = async () => {
@@ -33,7 +37,7 @@ export function LanguagePicker({
     }
   }, [visible]);
 
-  const handleLanguagePress = (language: Language & { isFree?: boolean }) => {
+  const handleLanguagePress = (language: Language) => {
     // Allow free languages or if user has premium
     if (language.isFree || hasPremium) {
       onSelect(language);
@@ -44,9 +48,10 @@ export function LanguagePicker({
     }
   };
 
-  const renderLanguageItem = ({ item }: { item: Language & { isFree?: boolean } }) => {
+  const renderLanguageItem = ({ item }: { item: Language }) => {
     const isSelected = item.code === selectedLanguage.code;
     const isLocked = !item.isFree && !hasPremium;
+    const isPremium = !item.isFree;
 
     return (
       <Pressable
@@ -57,12 +62,9 @@ export function LanguagePicker({
           <ThemedText style={[styles.languageName, isSelected && styles.selectedText]}>
             {item.name}
           </ThemedText>
-          {isLocked && (
-            <Ionicons name="lock-closed" size={18} color="#999" style={styles.lockIcon} />
-          )}
-          {item.isFree && (
-            <ThemedView style={styles.freeBadge}>
-              <ThemedText style={styles.freeBadgeText}>FREE</ThemedText>
+          {isPremium && (
+            <ThemedView style={[styles.proBadge, isLocked && styles.lockedBadge]}>
+              <ThemedText style={[styles.proBadgeText, isLocked && styles.lockedBadgeText]}>PRO</ThemedText>
             </ThemedView>
           )}
         </ThemedView>
@@ -73,7 +75,7 @@ export function LanguagePicker({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <ThemedView style={styles.container}>
+      <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
         <ThemedView style={styles.header}>
           <ThemedText style={styles.title}>Select Language</ThemedText>
           <Pressable onPress={onClose} style={styles.closeButton}>
@@ -91,7 +93,7 @@ export function LanguagePicker({
         )}
 
         <FlatList
-          data={LANGUAGES}
+          data={languages}
           renderItem={renderLanguageItem}
           keyExtractor={(item) => item.code}
           style={styles.list}
@@ -173,5 +175,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: 'bold',
+  },
+  proBadge: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  proBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  lockedBadge: {
+    backgroundColor: '#E5E5E5',
+  },
+  lockedBadgeText: {
+    color: '#999',
   },
 });
