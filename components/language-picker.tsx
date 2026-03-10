@@ -1,10 +1,12 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Language } from '@/utils/language-preferences';
 import { hasPurchasedPremiumLanguages } from '@/utils/purchase-manager';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet } from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
@@ -26,6 +28,8 @@ export function LanguagePicker({
 }: Props) {
   const [hasPremium, setHasPremium] = useState(false);
   const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   useEffect(() => {
     const checkPremium = async () => {
@@ -55,11 +59,21 @@ export function LanguagePicker({
 
     return (
       <Pressable
-        style={[styles.languageItem, isSelected && styles.selectedItem]}
+        style={[
+          styles.languageItem,
+          isSelected && {
+            backgroundColor: colors.tint + '20',
+          },
+        ]}
         onPress={() => handleLanguagePress(item)}
       >
-        <ThemedView style={styles.languageContent}>
-          <ThemedText style={[styles.languageName, isSelected && styles.selectedText]}>
+        <View style={styles.languageContent}>
+          <ThemedText
+            style={[
+              styles.languageName,
+              isSelected && { fontWeight: '600', color: colors.tint },
+            ]}
+          >
             {item.name}
           </ThemedText>
           {isPremium && (
@@ -67,8 +81,8 @@ export function LanguagePicker({
               <ThemedText style={[styles.proBadgeText, isLocked && styles.lockedBadgeText]}>PRO</ThemedText>
             </ThemedView>
           )}
-        </ThemedView>
-        {isSelected && <Ionicons name="checkmark" size={24} color="#007AFF" />}
+        </View>
+        {isSelected && <Ionicons name="checkmark" size={24} color={colors.tint} />}
       </Pressable>
     );
   };
@@ -79,7 +93,7 @@ export function LanguagePicker({
         <ThemedView style={styles.header}>
           <ThemedText style={styles.title}>Select Language</ThemedText>
           <Pressable onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color="#007AFF" />
+            <Ionicons name="close" size={28} color={colors.tint} />
           </Pressable>
         </ThemedView>
 
@@ -146,9 +160,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
-  selectedItem: {
-    backgroundColor: '#F0F8FF',
-  },
   languageContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -156,10 +167,6 @@ const styles = StyleSheet.create({
   },
   languageName: {
     fontSize: 16,
-  },
-  selectedText: {
-    fontWeight: '600',
-    color: '#007AFF',
   },
   lockIcon: {
     marginLeft: 4,
