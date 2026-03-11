@@ -2,8 +2,8 @@
 
 ## Overview
 This app now supports premium language packs where:
-- ✅ **English** and **Spanish** are FREE forever
-- 💎 All other languages require a **one-time purchase of $0.99 USD**
+- ✅ Multiple languages are FREE forever
+- 💎 All other languages require a **one-time purchase of $4.99 USD** (currently on limited offer for $1.99)
 
 ## Files Added/Modified
 
@@ -29,7 +29,7 @@ This app now supports premium language packs where:
 6. Configure:
    - **Product ID**: `premium_languages_099`
    - **Reference Name**: Premium Languages
-   - **Price**: $0.99 USD (Tier 1)
+   - **Price**: $4.99 USD (with promotional price of $1.99)
    - **Cleared for Sale**: YES
 7. Add localizations and screenshots
 8. Submit for review
@@ -45,7 +45,7 @@ This app now supports premium language packs where:
    - **Name**: Premium Languages Pack
    - **Description**: Unlock 30+ premium languages
    - **Status**: Active
-   - **Price**: $0.99 USD
+   - **Price**: $4.99 USD (with promotional price of $1.99)
 6. Save and activate
 
 ### 3. Testing with Sandbox
@@ -159,9 +159,9 @@ function RootLayout() {
 
 ### Revenue Considerations:
 
-- Apple takes 30% (you get $0.69 per sale)
-- Google takes 30% (you get $0.69 per sale)
-- After 1 year: 15% fee (you get $0.84 per sale)
+- Apple takes 30% (you get $1.39 per sale at promotional price, $3.49 at regular price)
+- Google takes 30% (you get $1.39 per sale at promotional price, $3.49 at regular price)
+- After 1 year: 15% fee (you get $1.69 at promotional price, $4.24 at regular price)
 
 ### Legal Requirements:
 

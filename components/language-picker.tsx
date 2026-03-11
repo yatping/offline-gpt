@@ -3,10 +3,10 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Language } from '@/utils/language-preferences';
-import { hasPurchasedPremiumLanguages } from '@/utils/purchase-manager';
+import { getProducts, hasPurchasedPremiumLanguages, initializePurchases } from '@/utils/purchase-manager';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
@@ -27,14 +27,36 @@ export function LanguagePicker({
   onShowPaywall,
 }: Props) {
   const [hasPremium, setHasPremium] = useState(false);
+  const [price, setPrice] = useState<string | null>(null);
+  const [originalPrice, setOriginalPrice] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
   useEffect(() => {
     const checkPremium = async () => {
+      await initializePurchases();
       const purchased = await hasPurchasedPremiumLanguages();
       setHasPremium(purchased);
+      
+      // Load price
+      if (!purchased) {
+        const products = await getProducts();
+        if (products.length > 0) {
+          const product = products[0];
+          setPrice(product.price || null);
+          
+          // Check for promotional pricing
+          const productAny = product as any;
+          if (productAny.introductoryPrice || productAny.subscriptionOffers) {
+            if (productAny.price_string) {
+              setOriginalPrice(productAny.price_string);
+            } else if (productAny.originalPrice) {
+              setOriginalPrice(productAny.originalPrice);
+            }
+          }
+        }
+      }
     };
     if (visible) {
       checkPremium();
@@ -98,12 +120,18 @@ export function LanguagePicker({
         </ThemedView>
 
         {!hasPremium && (
-          <ThemedView style={styles.premiumBanner}>
+          <Pressable style={styles.premiumBanner} onPress={onShowPaywall}>
             <Ionicons name="star" size={20} color="#FFD700" />
-            <ThemedText style={styles.premiumText}>
-              Unlock all languages for $0.99
-            </ThemedText>
-          </ThemedView>
+            {price ? (
+              <ThemedText style={styles.premiumText}>
+                {originalPrice && originalPrice !== price
+                  ? `🎉 LIMITED OFFER: ${price} (was ${originalPrice})`
+                  : `Unlock all languages for ${price}`}
+              </ThemedText>
+            ) : (
+              <ActivityIndicator size="small" color="#B8860B" />
+            )}
+          </Pressable>
         )}
 
         <FlatList

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as InAppPurchases from 'expo-in-app-purchases';
+import { LANGUAGES } from './language-preferences';
 
 const STORAGE_KEY = '@premium_languages_purchased';
 // Try one of these Product IDs if 'premium_languages_099' doesn't work:
@@ -41,9 +42,6 @@ export const debugIAP = async () => {
   console.log('=== END DEBUG ===');
 };
 
-// Free languages - English and Spanish
-export const FREE_LANGUAGES = ['en', 'es'];
-
 // Check if premium languages have been purchased
 export const hasPurchasedPremiumLanguages = async (): Promise<boolean> => {
   try {
@@ -66,7 +64,8 @@ export const setPremiumLanguagesPurchased = async (): Promise<void> => {
 
 // Check if a language is free
 export const isLanguageFree = (languageCode: string): boolean => {
-  return FREE_LANGUAGES.includes(languageCode);
+  const language = LANGUAGES.find(lang => lang.code === languageCode);
+  return language?.isFree ?? false;
 };
 
 // Check if user can use a specific language

@@ -14,7 +14,7 @@ export const LANGUAGES = [
   { code: 'nl', speechCode: 'nl-NL', name: 'Dutch', isFree: false },
   { code: 'fi', speechCode: 'fi-FI', name: 'Finnish', isFree: false },
   { code: 'fr', speechCode: 'fr-FR', name: 'French', isFree: true },
-  { code: 'de', speechCode: 'de-DE', name: 'German', isFree: false },
+  { code: 'de', speechCode: 'de-DE', name: 'German', isFree: true },
   { code: 'el', speechCode: 'el-GR', name: 'Greek', isFree: false },
   { code: 'he', speechCode: 'he-IL', name: 'Hebrew', isFree: false },
   { code: 'hi', speechCode: 'hi-IN', name: 'Hindi', isFree: false },

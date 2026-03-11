@@ -19,7 +19,8 @@ type Props = {
 
 export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }: Props) {
   const [loading, setLoading] = useState(false);
-  const [price, setPrice] = useState('$0.99');
+  const [price, setPrice] = useState<string | null>(null);
+  const [originalPrice, setOriginalPrice] = useState<string | null>(null);
   const [isPurchased, setIsPurchased] = useState(false);
 
   useEffect(() => {
@@ -36,11 +37,24 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
       // Load product price
       const products = await getProducts();
       if (products.length > 0) {
-        setPrice(products[0].price || '$0.99');
+        const product = products[0];
+        setPrice(product.price || null);
+        
+        // Check for introductory/promotional pricing
+        // On iOS: product.introductoryPrice, on Android: introductoryPriceAmountMicros
+        const productAny = product as any;
+        if (productAny.introductoryPrice || productAny.subscriptionOffers) {
+          // Has promotional pricing - the price field is the promo price
+          // Try to get the original price
+          if (productAny.price_string) {
+            setOriginalPrice(productAny.price_string);
+          } else if (productAny.originalPrice) {
+            setOriginalPrice(productAny.originalPrice);
+          }
+        }
       } else {
         console.error('❌ No products loaded in paywall');
-        // Keep default price if no products found
-        setPrice('$0.99');
+        setPrice(null);
       }
     };
     
@@ -122,12 +136,30 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
           <ThemedText style={styles.title}>Unlock Premium Languages</ThemedText>
           
           <ThemedText style={styles.description}>
-            English and Spanish are free forever!
+            Multiple languages are free forever!
           </ThemedText>
           
-          <ThemedText style={styles.description}>
-            Unlock all other languages for just {price}
-          </ThemedText>
+          <ThemedView style={styles.pricingContainer}>
+            {originalPrice && price && originalPrice !== price && (
+              <ThemedText style={styles.offerBadge}>🎉 LIMITED TIME OFFER</ThemedText>
+            )}
+            {price ? (
+              <ThemedView style={styles.priceDisplay}>
+                {originalPrice && originalPrice !== price && (
+                  <ThemedText style={styles.originalPrice}>{originalPrice}</ThemedText>
+                )}
+                <ThemedText style={styles.currentPrice}>{price}</ThemedText>
+                {originalPrice && originalPrice !== price && (
+                  <ThemedView style={styles.discountBadge}>
+                    <ThemedText style={styles.discountText}>SAVE</ThemedText>
+                  </ThemedView>
+                )}
+              </ThemedView>
+            ) : (
+              <ActivityIndicator size="small" style={styles.priceLoader} />
+            )}
+            <ThemedText style={styles.oneTimeText}>One-time purchase • No subscription</ThemedText>
+          </ThemedView>
 
           <ThemedView style={styles.features}>
             <ThemedText style={styles.feature}>✓ 30+ Premium Languages</ThemedText>
@@ -141,12 +173,12 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
           ) : (
             <>
               <Pressable
-                style={styles.purchaseButton}
+                style={[styles.purchaseButton, (!price || isPurchased) && styles.purchaseButtonDisabled]}
                 onPress={handlePurchase}
-                disabled={isPurchased}
+                disabled={isPurchased || !price}
               >
                 <ThemedText style={styles.purchaseButtonText}>
-                  {isPurchased ? 'Already Purchased' : `Unlock for ${price}`}
+                  {isPurchased ? 'Already Purchased' : price ? `Unlock for ${price}` : 'Loading...'}
                 </ThemedText>
               </Pressable>
 
@@ -190,9 +222,62 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 16,
-    marginBottom: 8,
+    marginBottom: 16,
     textAlign: 'center',
     opacity: 0.8,
+  },
+  pricingContainer: {
+    marginBottom: 8,
+    alignItems: 'center',
+    width: '100%',
+  },
+  offerBadge: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  priceDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 4,
+  },
+  originalPrice: {
+    fontSize: 24,
+    fontWeight: '600',
+    textDecorationLine: 'line-through',
+    opacity: 0.5,
+  },
+  currentPrice: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#34C759',
+  },
+  discountBadge: {
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  discountText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  oneTimeText: {
+    fontSize: 14,
+    opacity: 0.7,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  priceLoader: {
+    marginVertical: 20,
+  },
+  purchaseButtonDisabled: {
+    opacity: 0.5,
   },
   features: {
     marginTop: 24,
