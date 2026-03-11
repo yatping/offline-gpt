@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
+  debugIAP,
   getProducts,
   hasPurchasedPremiumLanguages,
   initializePurchases,
@@ -24,6 +25,9 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
   useEffect(() => {
     const setup = async () => {
       await initializePurchases();
+      // Debug IAP
+      console.log('🔍 Running IAP Debug...');
+      await debugIAP();
       
       // Check if already purchased
       const purchased = await hasPurchasedPremiumLanguages();
@@ -32,6 +36,9 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
       // Load product price
       const products = await getProducts();
       if (products.length > 0) {
+        setPrice(products[0].price || '$0.99');
+      } else {
+        console.error('❌ No products loaded in paywall');
         setPrice(products[0].price || '$0.99');
       }
     };

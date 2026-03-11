@@ -2,7 +2,39 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as InAppPurchases from 'expo-in-app-purchases';
 
 const STORAGE_KEY = '@premium_languages_purchased';
+// Try one of these Product IDs if 'premium_languages_099' doesn't work:
+// Option 1: com.holfun.offlinegpt.premium_languages
+// Option 2: premium_languages
+// Option 3: premium_languages_099 (current)
 const PRODUCT_ID = 'premium_languages_099'; // You'll configure this in App Store Connect / Play Console
+
+// Add debug function
+export const debugIAP = async () => {
+  console.log('=== IAP DEBUG INFO ===');
+  console.log('Product ID:', PRODUCT_ID);
+  
+  try {
+    const connected = await InAppPurchases.connectAsync();
+    console.log('IAP Connected:', connected);
+  } catch (error) {
+    console.error('Connection error:', error);
+  }
+  
+  try {
+    const { results, responseCode } = await InAppPurchases.getProductsAsync([PRODUCT_ID]);
+    console.log('Response Code:', responseCode);
+    console.log('Response Code Values:', {
+      OK: InAppPurchases.IAPResponseCode.OK,
+      USER_CANCELED: InAppPurchases.IAPResponseCode.USER_CANCELED,
+      ERROR: InAppPurchases.IAPResponseCode.ERROR,
+    });
+    console.log('Products Found:', results?.length || 0);
+    console.log('Products:', JSON.stringify(results, null, 2));
+  } catch (error) {
+    console.error('Products error:', error);
+  }
+  console.log('=== END DEBUG ===');
+};
 
 // Free languages - English and Spanish
 export const FREE_LANGUAGES = ['en', 'es'];
