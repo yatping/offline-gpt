@@ -76,9 +76,9 @@ export function LanguagePicker({
           >
             {item.name}
           </ThemedText>
-          {isPremium && (
-            <ThemedView style={[styles.proBadge, isLocked && styles.lockedBadge]}>
-              <ThemedText style={[styles.proBadgeText, isLocked && styles.lockedBadgeText]}>PRO</ThemedText>
+          {isLocked && (
+            <ThemedView style={styles.lockedBadge}>
+              <ThemedText style={styles.lockedBadgeText}>PRO</ThemedText>
             </ThemedView>
           )}
         </View>
