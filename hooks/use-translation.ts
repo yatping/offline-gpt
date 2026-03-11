@@ -23,7 +23,6 @@ export function useTranslation() {
     }
     
     if (isInitializingRef.current) {
-      console.log('Initialization already in progress, skipping...');
       return; // Already initializing
     }
 
@@ -35,7 +34,6 @@ export function useTranslation() {
       
       // Check if model exists in documents directory
       if (!modelFile.exists) {
-        console.log('Translation model not found, starting download...');
         setStatus('downloading');
         await downloadManager.downloadModel('translation');
         
@@ -55,7 +53,6 @@ export function useTranslation() {
 
       setStatus('loading');
       const modelPath = modelFile.uri;
-      console.log('Loading model from:', modelPath);
 
       const context = await initLlama(
         {
@@ -66,15 +63,13 @@ export function useTranslation() {
           n_batch: 512,
         },
         (loadProgress) => {
-          console.log('Translation model loading progress:', loadProgress);
+          // Model loading progress
         }
       );
 
       contextRef.current = context;
       setStatus('ready');
-      console.log('Model loaded successfully');
     } catch (err) {
-      console.error('Failed to initialize model:', err);
       setError(err instanceof Error ? err.message : 'Failed to load translation model');
       setStatus('error');
     } finally {
@@ -131,7 +126,6 @@ ${text}<end_of_turn>
         setStatus('ready');
         return completionResult.text.trim();
       } catch (err) {
-        console.error('Translation error:', err);
         setError(err instanceof Error ? err.message : 'Translation failed');
         setStatus('error');
         throw err;
@@ -156,10 +150,7 @@ ${text}<end_of_turn>
 
       try {
         // Step 1: Extract text from image using OCR
-        console.log('Extracting text from image:', imageUri);
         const result: unknown = await TextRecognition.recognize(imageUri);
-        
-        console.log('OCR raw result:', result);
         
         // Convert result to string, handling all possible types
         let extractedText: string;
@@ -174,9 +165,6 @@ ${text}<end_of_turn>
         } else {
           extractedText = String(result || '');
         }
-        
-        console.log('Converted to string:', extractedText);
-        console.log('String type check:', typeof extractedText);
         
         if (!extractedText || extractedText.trim().length === 0) {
           setStatus('ready');
@@ -200,7 +188,6 @@ ${text}<end_of_turn>
           translatedText,
         };
       } catch (err) {
-        console.error('Image translation error:', err);
         setError(err instanceof Error ? err.message : 'Image translation failed');
         setStatus('error');
         throw err;
@@ -217,7 +204,6 @@ ${text}<end_of_turn>
     }
     
     if (contextRef.current) {
-      console.log('Releasing translation model...');
       contextRef.current.release();
       contextRef.current = null;
       setStatus('idle');

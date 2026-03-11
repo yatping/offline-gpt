@@ -101,14 +101,12 @@ export default function TranslateScreen() {
     useCallback(() => {
       // Screen is focused - initialize model if we haven't already during this focus cycle
       if (!hasInitializedRef.current && status === 'idle') {
-        console.log('Translate screen focused - initializing model');
         hasInitializedRef.current = true;
         initializeModel();
       }
 
       // Cleanup when screen loses focus
       return () => {
-        console.log('Translate screen unfocused - releasing model');
         hasInitializedRef.current = false;
         releaseModel();
       };
@@ -119,9 +117,6 @@ export default function TranslateScreen() {
   useEffect(() => {
     const requestPermissions = async () => {
       const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!result.granted) {
-        console.log('Speech recognition permission not granted');
-      }
     };
     requestPermissions();
   }, []);
@@ -146,7 +141,7 @@ export default function TranslateScreen() {
           }
         );
       } catch (err) {
-        console.error('Translation failed:', err);
+        // Translation failed silently
       }
     }, 500);
 
@@ -172,8 +167,6 @@ export default function TranslateScreen() {
   });
 
   useSpeechRecognitionEvent('error', (event) => {
-    console.error('Speech recognition error:', event.error, 'Message:', event.message);
-    
     if (event.error === 'network') {
       Alert.alert(
         'Speech Recognition Issue',
@@ -201,7 +194,6 @@ export default function TranslateScreen() {
       await Clipboard.setStringAsync(text);
       Alert.alert('Copied', 'Text copied to clipboard');
     } catch (error) {
-      console.error('Error copying to clipboard:', error);
       Alert.alert('Error', 'Failed to copy text');
     }
   };
@@ -242,7 +234,6 @@ export default function TranslateScreen() {
     try {
       const TextRecognition = require('react-native-text-recognition').default;
       
-      console.log('Extracting text from image:', imageUri);
       const result = await TextRecognition.recognize(imageUri);
       
       let extractedText: string;
@@ -264,7 +255,6 @@ export default function TranslateScreen() {
       }
       setCurrentPage('extract');
     } catch (error) {
-      console.error('Error extracting text:', error);
       Alert.alert('Extraction Error', error instanceof Error ? error.message : 'Failed to extract text from image');
       setExtractedText('Error extracting text from image');
     } finally {
@@ -296,7 +286,6 @@ export default function TranslateScreen() {
       setCameraTranslatedText(result);
       setCurrentPage('translate');
     } catch (error) {
-      console.error('Translation error:', error);
       Alert.alert('Translation Error', error instanceof Error ? error.message : 'Failed to translate text');
     } finally {
       setIsCameraTranslating(false);
@@ -335,7 +324,6 @@ export default function TranslateScreen() {
     const oppositeSpeaker = section === 'upper' ? 'lower' : 'upper';
 
     if (!isReady) {
-      console.warn('Translation model not ready');
       return;
     }
 
@@ -354,7 +342,6 @@ export default function TranslateScreen() {
       };
       setAllMessages((prev) => [...prev, translatedMessage]);
     } catch (error) {
-      console.error('Translation error:', error);
       Alert.alert('Translation Error', 'Failed to translate message');
     }
   };
@@ -413,7 +400,6 @@ export default function TranslateScreen() {
         }
       }
     } catch (error) {
-      console.error('Error starting/stopping speech recognition:', error);
       Alert.alert('Error', 'Failed to start speech recognition');
       setIsRecordingUpper(false);
       setIsRecordingLower(false);

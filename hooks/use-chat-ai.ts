@@ -27,7 +27,6 @@ export function useChatAI() {
     }
     
     if (isInitializingRef.current) {
-      console.log('Chat AI initialization already in progress, skipping...');
       return; // Already initializing
     }
 
@@ -39,7 +38,6 @@ export function useChatAI() {
       
       // Check if model exists in documents directory
       if (!modelFile.exists) {
-        console.log('Chat AI model not found, starting download...');
         setStatus('downloading');
         await downloadManager.downloadModel('chat');
         
@@ -67,23 +65,16 @@ export function useChatAI() {
       
       // Check if file is too small (likely corrupted or incomplete)
       const fileSize = finalModelFile.size || 0;
-      console.log('Model file size:', fileSize, 'bytes (', (fileSize / 1024 / 1024).toFixed(2), 'MB)');
       
       if (fileSize < 1024 * 1024) { // Less than 1MB is definitely wrong for a model
-        console.error('Model file is too small, likely corrupted or incomplete');
         // Delete the corrupted file
         await finalModelFile.delete();
         throw new Error(`Model file is corrupted (only ${(fileSize / 1024).toFixed(2)} KB). Please restart the app to re-download.`);
       }
       
       const modelPath = finalModelFile.uri;
-      console.log('Loading chat AI model from:', modelPath);
-      console.log('File exists:', finalModelFile.exists);
-      console.log('File size:', finalModelFile.size, 'bytes');
       
       // Add more detailed error context
-      console.log('Platform:', Platform.OS);
-      console.log('Initializing llama with n_gpu_layers:', Platform.OS === 'ios' ? 99 : 0);
 
       const context = await initLlama(
         {
@@ -94,19 +85,15 @@ export function useChatAI() {
           n_batch: 512,
         },
         (loadProgress) => {
-          console.log('Chat AI model loading progress:', loadProgress);
+          // Model loading progress
         }
       );
 
       contextRef.current = context;
       setStatus('ready');
-      console.log('Chat AI model loaded successfully');
     } catch (err) {
-      console.error('Failed to initialize chat AI model:', err);
       // Log more detailed error information
       if (err instanceof Error) {
-        console.error('Error message:', err.message);
-        console.error('Error stack:', err.stack);
       }
       setError(err instanceof Error ? err.message : 'Failed to load chat AI model');
       setStatus('error');
@@ -167,7 +154,6 @@ export function useChatAI() {
         setStatus('ready');
         return completionResult.text.trim();
       } catch (err) {
-        console.error('Chat AI generation error:', err);
         setError(err instanceof Error ? err.message : 'Chat generation failed');
         setStatus('error');
         throw err;
@@ -184,7 +170,6 @@ export function useChatAI() {
     }
     
     if (contextRef.current) {
-      console.log('Releasing chat AI model...');
       contextRef.current.release();
       contextRef.current = null;
       setStatus('idle');

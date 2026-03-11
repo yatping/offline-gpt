@@ -40,7 +40,6 @@ export async function manualUpdateCheck(): Promise<void> {
       Alert.alert('Up to Date', 'You are already running the latest version');
     }
   } catch (error) {
-    console.error('Error checking for updates:', error);
     Alert.alert('Error', 'Failed to check for updates. Please try again later.');
   }
 }
@@ -67,7 +66,6 @@ export async function reloadApp(): Promise<void> {
   try {
     await Updates.reloadAsync();
   } catch (error) {
-    console.error('Error reloading app:', error);
     Alert.alert('Error', 'Failed to reload the app');
   }
 }
