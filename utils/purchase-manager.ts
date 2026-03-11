@@ -16,8 +16,13 @@ export const debugIAP = async () => {
   try {
     const connected = await InAppPurchases.connectAsync();
     console.log('IAP Connected:', connected);
-  } catch (error) {
-    console.error('Connection error:', error);
+  } catch (error: any) {
+    // Ignore "already connected" error
+    if (error?.message?.includes('Already connected')) {
+      console.log('IAP Already connected (this is fine)');
+    } else {
+      console.error('Connection error:', error);
+    }
   }
   
   try {
@@ -76,8 +81,11 @@ export const canUseLanguage = async (languageCode: string): Promise<boolean> => 
 export const initializePurchases = async (): Promise<void> => {
   try {
     await InAppPurchases.connectAsync();
-  } catch (error) {
-    console.error('Failed to initialize purchases:', error);
+  } catch (error: any) {
+    // Ignore "already connected" error as it's harmless
+    if (!error?.message?.includes('Already connected')) {
+      console.error('Failed to initialize purchases:', error);
+    }
   }
 };
 

@@ -39,7 +39,8 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
         setPrice(products[0].price || '$0.99');
       } else {
         console.error('❌ No products loaded in paywall');
-        setPrice(products[0].price || '$0.99');
+        // Keep default price if no products found
+        setPrice('$0.99');
       }
     };
     
