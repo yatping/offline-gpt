@@ -7,9 +7,31 @@ export function useOTAUpdates() {
   const [isDownloading, setIsDownloading] = useState(false);
 
   const checkForUpdates = useCallback(async (showAlerts = false) => {
-    // Skip in development mode
-    if (__DEV__ || !Updates.isEnabled) {
-      console.log('[OTA] Updates disabled in development mode');
+    // Log current update info
+    console.log('[OTA] Current update info:', {
+      updateId: Updates.updateId,
+      channel: Updates.channel,
+      runtimeVersion: Updates.runtimeVersion,
+      isEnabled: Updates.isEnabled,
+      isEmbeddedLaunch: Updates.isEmbeddedLaunch,
+      isDev: __DEV__,
+    });
+
+    // Skip in development builds - OTA updates are not supported
+    if (__DEV__) {
+      console.log('[OTA] Updates disabled in development mode. Use a preview/production build to test OTA updates.');
+      return;
+    }
+
+    // Check if updates are properly configured
+    if (!Updates.isEnabled) {
+      console.warn('[OTA] Updates are disabled. App may need to be rebuilt with proper runtime version.');
+      return;
+    }
+
+    // Validate runtime version exists
+    if (!Updates.runtimeVersion) {
+      console.error('[OTA] No runtime version found. Rebuild the app with runtime version configured.');
       return;
     }
 
