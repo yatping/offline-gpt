@@ -398,6 +398,8 @@ export default function ChatScreen() {
         visible={showDownloadPrompt}
         title="Download Chat AI Model"
         description="To use the offline chat assistant, we need to download the AI model to your device."
+        downloadSize="~1.4 GB"
+        downloadTime="5-15 minutes"
         onConfirm={() => {
           setShowDownloadPrompt(false);
           initializeModel();

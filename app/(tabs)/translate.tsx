@@ -1018,6 +1018,8 @@ export default function TranslateScreen() {
         visible={showDownloadPrompt}
         title="Download AI Translation Model"
         description="To use offline translation, we need to download the AI model to your device."
+        downloadSize="~2.6 GB"
+        downloadTime="10-30 minutes"
         onConfirm={() => {
           setShowDownloadPrompt(false);
           initializeModel();

@@ -10,6 +10,8 @@ interface DownloadPromptModalProps {
   visible: boolean;
   title?: string;
   description?: string;
+  downloadSize?: string;
+  downloadTime?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -18,6 +20,8 @@ export function DownloadPromptModal({
   visible,
   title = 'Download AI Model',
   description = 'To use offline features, we need to download the AI model to your device.',
+  downloadSize = '~2 GB',
+  downloadTime = '10-20 minutes',
   onConfirm,
   onCancel,
 }: DownloadPromptModalProps) {
@@ -45,7 +49,7 @@ export function DownloadPromptModal({
           <View style={[styles.infoBox, { backgroundColor: colors.tint + '10' }]}>
             <View style={styles.infoRow}>
               <IconSymbol name="arrow.down.to.line" size={20} color={colors.tint} />
-              <ThemedText style={styles.infoText}>Download Size: ~50-100 MB</ThemedText>
+              <ThemedText style={styles.infoText}>Download Size: {downloadSize}</ThemedText>
             </View>
             <View style={styles.infoRow}>
               <IconSymbol name="wifi" size={20} color={colors.tint} />
@@ -53,7 +57,7 @@ export function DownloadPromptModal({
             </View>
             <View style={styles.infoRow}>
               <IconSymbol name="clock" size={20} color={colors.tint} />
-              <ThemedText style={styles.infoText}>Takes 2-5 minutes</ThemedText>
+              <ThemedText style={styles.infoText}>Takes {downloadTime}</ThemedText>
             </View>
           </View>
 
