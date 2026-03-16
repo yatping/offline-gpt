@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DownloadPromptModal } from '@/components/download-prompt-modal';
 import { LanguagePicker } from '@/components/language-picker';
 import { PremiumLanguagesPaywall } from '@/components/premium-languages-paywall';
 import { ThemedText } from '@/components/themed-text';
@@ -44,6 +45,7 @@ export default function TranslateScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [mode, setMode] = useState<TranslateMode>('translate');
+  const [showDownloadPrompt, setShowDownloadPrompt] = useState(false);
 
   // Text Translation State
   const [sourceText, setSourceText] = useState('');
@@ -99,10 +101,10 @@ export default function TranslateScreen() {
   // Initialize model when screen is focused, release when unfocused
   useFocusEffect(
     useCallback(() => {
-      // Screen is focused - initialize model if we haven't already during this focus cycle
+      // Screen is focused - show download prompt if model not ready
       if (!hasInitializedRef.current && status === 'idle') {
         hasInitializedRef.current = true;
-        initializeModel();
+        setShowDownloadPrompt(true);
       }
 
       // Cleanup when screen loses focus
@@ -427,6 +429,8 @@ export default function TranslateScreen() {
         return 'bubble.left.and.bubble.right.fill';
     }
   };
+
+
 
   // Bottom Tab Bar Component
   const BottomTabBar = () => (
@@ -1010,6 +1014,16 @@ export default function TranslateScreen() {
 
   return (
     <SafeAreaView style={[styles.safeContainer, { backgroundColor: colors.background }]} edges={['top']}>
+      <DownloadPromptModal
+        visible={showDownloadPrompt}
+        title="Download AI Translation Model"
+        description="To use offline translation, we need to download the AI model to your device."
+        onConfirm={() => {
+          setShowDownloadPrompt(false);
+          initializeModel();
+        }}
+        onCancel={() => setShowDownloadPrompt(false)}
+      />
       {mode === 'translate' && renderTextTranslateMode()}
       {mode === 'camera' && renderCameraMode()}
       {mode === 'conversation' && renderConversationMode()}

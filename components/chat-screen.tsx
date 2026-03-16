@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DownloadPromptModal } from '@/components/download-prompt-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -46,6 +47,7 @@ export default function ChatScreen() {
   } = useChatAI();
   
   const [showSidebar, setShowSidebar] = useState(false);
+  const [showDownloadPrompt, setShowDownloadPrompt] = useState(false);
   const [inputText, setInputText] = useState('');
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -56,11 +58,11 @@ export default function ChatScreen() {
   // Initialize model when screen is focused, release when unfocused
   useFocusEffect(
     useCallback(() => {
-      // Screen is focused - initialize model if we haven't already during this focus cycle
+      // Screen is focused - show download prompt if model not ready
       if (!hasInitializedRef.current && status === 'idle') {
-        console.log('Chat screen focused - initializing model');
+        console.log('Chat screen focused - showing download prompt');
         hasInitializedRef.current = true;
-        initializeModel();
+        setShowDownloadPrompt(true);
       }
 
       // Cleanup when screen loses focus
@@ -331,6 +333,8 @@ export default function ChatScreen() {
     }
   };
 
+
+
   // Show loading screen while model is initializing
   if (status === 'loading' || status === 'downloading') {
     return (
@@ -390,6 +394,16 @@ export default function ChatScreen() {
   
   return (
     <View style={styles.container}>
+      <DownloadPromptModal
+        visible={showDownloadPrompt}
+        title="Download Chat AI Model"
+        description="To use the offline chat assistant, we need to download the AI model to your device."
+        onConfirm={() => {
+          setShowDownloadPrompt(false);
+          initializeModel();
+        }}
+        onCancel={() => setShowDownloadPrompt(false)}
+      />
       <SafeAreaView style={{ backgroundColor: colors.background }} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity
