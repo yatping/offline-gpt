@@ -1,22 +1,23 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import * as Clipboard from 'expo-clipboard';
+import { File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
+    ExpoSpeechRecognitionModule,
+    useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Keyboard,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Keyboard,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -101,10 +102,19 @@ export default function TranslateScreen() {
   // Initialize model when screen is focused, release when unfocused
   useFocusEffect(
     useCallback(() => {
-      // Screen is focused - show download prompt if model not ready
+      // Screen is focused - check if model exists and initialize or show prompt
       if (!hasInitializedRef.current && status === 'idle') {
         hasInitializedRef.current = true;
-        setShowDownloadPrompt(true);
+        
+        // Check if model file exists
+        const modelFile = new File(Paths.document, 'translategemma-4b-it.Q4_K_S.gguf');
+        if (modelFile.exists) {
+          // Model already downloaded, initialize directly
+          initializeModel();
+        } else {
+          // Model not downloaded, show prompt
+          setShowDownloadPrompt(true);
+        }
       }
 
       // Cleanup when screen loses focus
@@ -112,7 +122,7 @@ export default function TranslateScreen() {
         hasInitializedRef.current = false;
         releaseModel();
       };
-    }, [])
+    }, [initializeModel, releaseModel, status])
   );
 
   // Request speech permissions on mount

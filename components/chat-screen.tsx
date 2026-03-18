@@ -1,15 +1,15 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,15 +21,16 @@ import { Colors } from '@/constants/theme';
 import { ChatMessage, useChatAI } from '@/hooks/use-chat-ai';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  ChatSession,
-  deleteSession as deleteSessionFromStorage,
-  generateSessionId,
-  generateSessionTitle,
-  getActiveSessionId,
-  loadSessions,
-  saveSession,
-  setActiveSessionId,
+    ChatSession,
+    deleteSession as deleteSessionFromStorage,
+    generateSessionId,
+    generateSessionTitle,
+    getActiveSessionId,
+    loadSessions,
+    saveSession,
+    setActiveSessionId,
 } from '@/utils/chat-storage';
+import { File, Paths } from 'expo-file-system';
 
 export default function ChatScreen() {
   const colorScheme = useColorScheme();
@@ -58,11 +59,22 @@ export default function ChatScreen() {
   // Initialize model when screen is focused, release when unfocused
   useFocusEffect(
     useCallback(() => {
-      // Screen is focused - show download prompt if model not ready
+      // Screen is focused - check if model exists and initialize or show prompt
       if (!hasInitializedRef.current && status === 'idle') {
-        console.log('Chat screen focused - showing download prompt');
+        console.log('Chat screen focused - checking for model');
         hasInitializedRef.current = true;
-        setShowDownloadPrompt(true);
+        
+        // Check if model file exists
+        const modelFile = new File(Paths.document, 'llama-3.2-1b-instruct-q8_0.gguf');
+        if (modelFile.exists) {
+          // Model already downloaded, initialize directly
+          console.log('Model exists, initializing directly');
+          initializeModel();
+        } else {
+          // Model not downloaded, show prompt
+          console.log('Model not found, showing download prompt');
+          setShowDownloadPrompt(true);
+        }
       }
 
       // Cleanup when screen loses focus
@@ -71,7 +83,7 @@ export default function ChatScreen() {
         hasInitializedRef.current = false;
         releaseModel();
       };
-    }, [])
+    }, [initializeModel, releaseModel, status])
   );
 
   // Load sessions from storage on mount
