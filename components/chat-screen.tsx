@@ -83,7 +83,7 @@ export default function ChatScreen() {
         hasInitializedRef.current = false;
         releaseModel();
       };
-    }, [initializeModel, releaseModel, status])
+    }, [])
   );
 
   // Load sessions from storage on mount

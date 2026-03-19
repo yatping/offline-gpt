@@ -40,17 +40,13 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
         const product = products[0];
         setPrice(product.price || null);
         
-        // Check for introductory/promotional pricing
-        // On iOS: product.introductoryPrice, on Android: introductoryPriceAmountMicros
-        const productAny = product as any;
-        if (productAny.introductoryPrice || productAny.subscriptionOffers) {
-          // Has promotional pricing - the price field is the promo price
-          // Try to get the original price
-          if (productAny.price_string) {
-            setOriginalPrice(productAny.price_string);
-          } else if (productAny.originalPrice) {
-            setOriginalPrice(productAny.originalPrice);
-          }
+        // Regular price is $1.99, promotional price is $0.99 (until end of year)
+        // For one-time purchases, the store API doesn't expose original price,
+        // so we hardcode it and check if current price is lower
+        const REGULAR_PRICE = '$1.99';
+        if (product.price && product.price !== REGULAR_PRICE) {
+          // Currently showing promotional price
+          setOriginalPrice(REGULAR_PRICE);
         }
       } else {
         console.error('❌ No products loaded in paywall');
@@ -230,6 +226,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     alignItems: 'center',
     width: '100%',
+    paddingVertical: 16,
   },
   offerBadge: {
     fontSize: 14,
@@ -244,6 +241,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     marginBottom: 4,
+    paddingVertical: 12,
   },
   originalPrice: {
     fontSize: 24,
@@ -255,6 +253,7 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: 'bold',
     color: '#34C759',
+    lineHeight: 56,
   },
   discountBadge: {
     backgroundColor: '#FF3B30',

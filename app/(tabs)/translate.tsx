@@ -122,7 +122,7 @@ export default function TranslateScreen() {
         hasInitializedRef.current = false;
         releaseModel();
       };
-    }, [initializeModel, releaseModel, status])
+    }, [])
   );
 
   // Request speech permissions on mount
