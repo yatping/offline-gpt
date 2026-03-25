@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   debugIAP,
   getProducts,
@@ -17,6 +18,8 @@ type Props = {
 };
 
 export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }: Props) {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const [loading, setLoading] = useState(false);
   const [price, setPrice] = useState<string | null>(null);
   const [originalPrice, setOriginalPrice] = useState<string | null>(null);
@@ -127,14 +130,14 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
           {/* Close Button */}
           <Pressable style={styles.closeIconButton} onPress={onClose}>
-            <ThemedText style={styles.closeIcon}>✕</ThemedText>
+            <ThemedText style={[styles.closeIcon, { color: isDark ? '#999' : '#999' }]}>✕</ThemedText>
           </Pressable>
 
           {/* Crown Icon */}
-          <View style={styles.iconContainer}>
+          <View style={[styles.iconContainer, { backgroundColor: isDark ? '#2C2C2E' : '#FFF9E6' }]}>
             <View style={styles.crownIcon}>
               <View style={styles.crownTop}>
                 <View style={styles.crownPeak} />
@@ -146,20 +149,20 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
           </View>
 
           {/* Title */}
-          <ThemedText style={styles.title}>Upgrade to Pro</ThemedText>
+          <ThemedText style={[styles.title, { color: isDark ? '#FFFFFF' : '#000' }]}>Upgrade to Pro</ThemedText>
           
           {/* Subtitle */}
-          <ThemedText style={styles.subtitle}>
+          <ThemedText style={[styles.subtitle, { color: isDark ? '#AAAAAA' : '#666' }]}>
             Unlock all languages and premium features
           </ThemedText>
 
           {/* Limited Offer Badge */}
           {originalPrice && price && originalPrice !== price && (
-            <View style={styles.offerBadge}>
-              <ThemedText style={styles.offerText}>🎉 LIMITED TIME OFFER</ThemedText>
+            <View style={[styles.offerBadge, { backgroundColor: isDark ? '#2C2C2E' : '#FFF3E0' }]}>
+              <ThemedText style={[styles.offerText, { color: isDark ? '#FF9F0A' : '#F57C00' }]}>🎉 LIMITED TIME OFFER</ThemedText>
               <View style={styles.priceComparisonRow}>
-                <ThemedText style={styles.originalPrice}>{originalPrice}</ThemedText>
-                <ThemedText style={styles.currentPriceSmall}>{price}</ThemedText>
+                <ThemedText style={[styles.originalPrice, { color: isDark ? '#666' : '#999' }]}>{originalPrice}</ThemedText>
+                <ThemedText style={[styles.currentPriceSmall, { color: isDark ? '#FF9F0A' : '#F57C00' }]}>{price}</ThemedText>
               </View>
             </View>
           )}
@@ -168,19 +171,19 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
           <View style={styles.features}>
             <View style={styles.featureRow}>
               <ThemedText style={styles.checkmark}>✓</ThemedText>
-              <ThemedText style={styles.featureText}>30+ Premium Languages</ThemedText>
+              <ThemedText style={[styles.featureText, { color: isDark ? '#DDDDDD' : '#333' }]}>30+ Premium Languages</ThemedText>
             </View>
             <View style={styles.featureRow}>
               <ThemedText style={styles.checkmark}>✓</ThemedText>
-              <ThemedText style={styles.featureText}>One-Time Payment</ThemedText>
+              <ThemedText style={[styles.featureText, { color: isDark ? '#DDDDDD' : '#333' }]}>One-Time Payment</ThemedText>
             </View>
             <View style={styles.featureRow}>
               <ThemedText style={styles.checkmark}>✓</ThemedText>
-              <ThemedText style={styles.featureText}>No Subscriptions</ThemedText>
+              <ThemedText style={[styles.featureText, { color: isDark ? '#DDDDDD' : '#333' }]}>No Subscriptions</ThemedText>
             </View>
             <View style={styles.featureRow}>
               <ThemedText style={styles.checkmark}>✓</ThemedText>
-              <ThemedText style={styles.featureText}>Works Offline</ThemedText>
+              <ThemedText style={[styles.featureText, { color: isDark ? '#DDDDDD' : '#333' }]}>Works Offline</ThemedText>
             </View>
           </View>
 
@@ -213,7 +216,7 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
 
               {/* Restore Purchase Button */}
               <Pressable style={styles.restoreButton} onPress={handleRestore}>
-                <ThemedText style={styles.restoreButtonText}>
+                <ThemedText style={[styles.restoreButtonText, { color: isDark ? '#999' : '#666' }]}>
                   Restore Purchase
                 </ThemedText>
               </Pressable>
@@ -222,7 +225,7 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
 
           {/* Maybe Later */}
           <Pressable style={styles.maybeLaterButton} onPress={onClose}>
-            <ThemedText style={styles.maybeLaterText}>Maybe later</ThemedText>
+            <ThemedText style={[styles.maybeLaterText, { color: isDark ? '#777' : '#999' }]}>Maybe later</ThemedText>
           </Pressable>
         </View>
       </View>
@@ -241,7 +244,6 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxWidth: 400,
-    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 32,
     alignItems: 'center',
@@ -263,14 +265,12 @@ const styles = StyleSheet.create({
   },
   closeIcon: {
     fontSize: 24,
-    color: '#999',
     fontWeight: '300',
   },
   iconContainer: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#FFF9E6',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -306,19 +306,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#000',
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 24,
     textAlign: 'center',
     lineHeight: 22,
   },
   offerBadge: {
-    backgroundColor: '#FFF3E0',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
@@ -329,7 +326,6 @@ const styles = StyleSheet.create({
   offerText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#F57C00',
     marginBottom: 8,
   },
   priceComparisonRow: {
@@ -340,13 +336,11 @@ const styles = StyleSheet.create({
   originalPrice: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#999',
     textDecorationLine: 'line-through',
   },
   currentPriceSmall: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#F57C00',
   },
   features: {
     width: '100%',
@@ -366,7 +360,6 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 16,
-    color: '#333',
     flex: 1,
     lineHeight: 22,
   },
@@ -429,7 +422,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   restoreButtonText: {
-    color: '#666',
     fontSize: 15,
     fontWeight: '500',
     textAlign: 'center',
@@ -439,7 +431,6 @@ const styles = StyleSheet.create({
   },
   maybeLaterText: {
     fontSize: 16,
-    color: '#999',
     textAlign: 'center',
   },
   loader: {
