@@ -1,15 +1,15 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,14 +21,14 @@ import { Colors } from '@/constants/theme';
 import { ChatMessage, useChatAI } from '@/hooks/use-chat-ai';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-    ChatSession,
-    deleteSession as deleteSessionFromStorage,
-    generateSessionId,
-    generateSessionTitle,
-    getActiveSessionId,
-    loadSessions,
-    saveSession,
-    setActiveSessionId,
+  ChatSession,
+  deleteSession as deleteSessionFromStorage,
+  generateSessionId,
+  generateSessionTitle,
+  getActiveSessionId,
+  loadSessions,
+  saveSession,
+  setActiveSessionId,
 } from '@/utils/chat-storage';
 import { File, Paths } from 'expo-file-system';
 
@@ -49,6 +49,7 @@ export default function ChatScreen() {
   
   const [showSidebar, setShowSidebar] = useState(false);
   const [showDownloadPrompt, setShowDownloadPrompt] = useState(false);
+  const [showWarningBanner, setShowWarningBanner] = useState(false);
   const [inputText, setInputText] = useState('');
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -409,16 +410,29 @@ export default function ChatScreen() {
       <DownloadPromptModal
         visible={showDownloadPrompt}
         title="Download Chat AI Model"
-        description="To use the offline chat assistant, we need to download the AI model to your device."
-        downloadSize="~1.4 GB"
-        downloadTime="5-15 minutes"
+        description="AI Chat requires a ~1.4 GB AI model for offline use. Download it now for the best experience."
+        warning="Without the model, AI Chat features won't work offline."
         onConfirm={() => {
           setShowDownloadPrompt(false);
+          setShowWarningBanner(false);
           initializeModel();
         }}
-        onCancel={() => setShowDownloadPrompt(false)}
+        onCancel={() => {
+          setShowDownloadPrompt(false);
+          setShowWarningBanner(true);
+        }}
       />
       <SafeAreaView style={{ backgroundColor: colors.background }} edges={['top']}>
+        {showWarningBanner && status === 'idle' && (
+          <TouchableOpacity
+            style={[styles.warningBanner, { backgroundColor: '#ff9800' }]}
+            onPress={() => setShowDownloadPrompt(true)}>
+            <IconSymbol name="exclamationmark.triangle.fill" size={20} color="#fff" />
+            <ThemedText style={styles.warningBannerText}>
+              AI model not downloaded. Tap to download.
+            </ThemedText>
+          </TouchableOpacity>
+        )}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.menuButton}
@@ -787,5 +801,18 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  warningBannerText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

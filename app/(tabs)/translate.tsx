@@ -4,20 +4,20 @@ import * as Clipboard from 'expo-clipboard';
 import { File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import {
-    ExpoSpeechRecognitionModule,
-    useSpeechRecognitionEvent,
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Keyboard,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -47,6 +47,7 @@ export default function TranslateScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const [mode, setMode] = useState<TranslateMode>('translate');
   const [showDownloadPrompt, setShowDownloadPrompt] = useState(false);
+  const [showWarningBanner, setShowWarningBanner] = useState(false);
 
   // Text Translation State
   const [sourceText, setSourceText] = useState('');
@@ -1027,15 +1028,28 @@ export default function TranslateScreen() {
       <DownloadPromptModal
         visible={showDownloadPrompt}
         title="Download AI Translation Model"
-        description="To use offline translation, we need to download the AI model to your device."
-        downloadSize="~2.6 GB"
-        downloadTime="10-30 minutes"
+        description="AI Translate requires a ~2.6 GB AI model for offline use. Download it now for the best experience."
+        warning="Without the model, AI Translate features won't work offline."
         onConfirm={() => {
           setShowDownloadPrompt(false);
+          setShowWarningBanner(false);
           initializeModel();
         }}
-        onCancel={() => setShowDownloadPrompt(false)}
+        onCancel={() => {
+          setShowDownloadPrompt(false);
+          setShowWarningBanner(true);
+        }}
       />
+      {showWarningBanner && status === 'idle' && (
+        <TouchableOpacity
+          style={[styles.warningBanner, { backgroundColor: '#ff9800' }]}
+          onPress={() => setShowDownloadPrompt(true)}>
+          <IconSymbol name="exclamationmark.triangle.fill" size={20} color="#fff" />
+          <ThemedText style={styles.warningBannerText}>
+            AI model not downloaded. Tap to download.
+          </ThemedText>
+        </TouchableOpacity>
+      )}
       {mode === 'translate' && renderTextTranslateMode()}
       {mode === 'camera' && renderCameraMode()}
       {mode === 'conversation' && renderConversationMode()}
@@ -1352,5 +1366,18 @@ const styles = StyleSheet.create({
   divider: {
     height: 2,
     marginHorizontal: 16,
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  warningBannerText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -49,7 +49,7 @@ export function LanguagePicker({
           // Regular price is $1.99, promotional price is $0.99 (until end of year)
           // For one-time purchases, the store API doesn't expose original price,
           // so we hardcode it and check if current price is lower
-          const REGULAR_PRICE = '$1.99';
+          const REGULAR_PRICE = '$4.99';
           if (product.price && product.price !== REGULAR_PRICE) {
             // Currently showing promotional price
             setOriginalPrice(REGULAR_PRICE);
@@ -97,12 +97,8 @@ export function LanguagePicker({
           >
             {item.name}
           </ThemedText>
-          {isLocked && (
-            <View style={styles.lockedBadge}>
-              <ThemedText style={styles.lockedBadgeText}>PRO</ThemedText>
-            </View>
-          )}
         </View>
+        {isLocked && <Ionicons name="lock-closed" size={20} color="#D4A017" />}
         {isSelected && <Ionicons name="checkmark" size={24} color={colors.tint} />}
       </Pressable>
     );
@@ -120,7 +116,6 @@ export function LanguagePicker({
 
         {!hasPremium && (
           <Pressable style={styles.premiumBanner} onPress={onShowPaywall}>
-            <Ionicons name="star" size={20} color="#FFD700" />
             {price ? (
               <ThemedText style={styles.premiumText}>
                 {originalPrice && originalPrice !== price
@@ -221,23 +216,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: 'bold',
-  },
-  lockedBadge: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginLeft: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  lockedBadgeText: {
-    color: '#000000',
-    fontSize: 11,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
   },
 });

@@ -1,5 +1,4 @@
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import {
   debugIAP,
   getProducts,
@@ -9,7 +8,7 @@ import {
   restorePurchases,
 } from '@/utils/purchase-manager';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 type Props = {
   visible: boolean;
@@ -43,7 +42,7 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
         // Regular price is $1.99, promotional price is $0.99 (until end of year)
         // For one-time purchases, the store API doesn't expose original price,
         // so we hardcode it and check if current price is lower
-        const REGULAR_PRICE = '$1.99';
+        const REGULAR_PRICE = '$4.99';
         if (product.price && product.price !== REGULAR_PRICE) {
           // Currently showing promotional price
           setOriginalPrice(REGULAR_PRICE);
@@ -127,57 +126,92 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
       animationType="fade"
       onRequestClose={onClose}
     >
-      <ThemedView style={styles.overlay}>
-        <ThemedView style={styles.container}>
-          <ThemedText style={styles.title}>Unlock Premium Languages</ThemedText>
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          {/* Close Button */}
+          <Pressable style={styles.closeIconButton} onPress={onClose}>
+            <ThemedText style={styles.closeIcon}>✕</ThemedText>
+          </Pressable>
+
+          {/* Crown Icon */}
+          <View style={styles.iconContainer}>
+            <View style={styles.crownIcon}>
+              <View style={styles.crownTop}>
+                <View style={styles.crownPeak} />
+                <View style={[styles.crownPeak, styles.crownPeakMiddle]} />
+                <View style={styles.crownPeak} />
+              </View>
+              <View style={styles.crownBase} />
+            </View>
+          </View>
+
+          {/* Title */}
+          <ThemedText style={styles.title}>Upgrade to Pro</ThemedText>
           
-          <ThemedText style={styles.description}>
-            Multiple languages are free forever!
+          {/* Subtitle */}
+          <ThemedText style={styles.subtitle}>
+            Unlock all languages and premium features
           </ThemedText>
+
+          {/* Limited Offer Badge */}
+          {originalPrice && price && originalPrice !== price && (
+            <View style={styles.offerBadge}>
+              <ThemedText style={styles.offerText}>🎉 LIMITED TIME OFFER</ThemedText>
+              <View style={styles.priceComparisonRow}>
+                <ThemedText style={styles.originalPrice}>{originalPrice}</ThemedText>
+                <ThemedText style={styles.currentPriceSmall}>{price}</ThemedText>
+              </View>
+            </View>
+          )}
           
-          <ThemedView style={styles.pricingContainer}>
-            {originalPrice && price && originalPrice !== price && (
-              <ThemedText style={styles.offerBadge}>🎉 LIMITED TIME OFFER</ThemedText>
-            )}
-            {price ? (
-              <ThemedView style={styles.priceDisplay}>
-                {originalPrice && originalPrice !== price && (
-                  <ThemedText style={styles.originalPrice}>{originalPrice}</ThemedText>
-                )}
-                <ThemedText style={styles.currentPrice}>{price}</ThemedText>
-                {originalPrice && originalPrice !== price && (
-                  <ThemedView style={styles.discountBadge}>
-                    <ThemedText style={styles.discountText}>SAVE</ThemedText>
-                  </ThemedView>
-                )}
-              </ThemedView>
-            ) : (
-              <ActivityIndicator size="small" style={styles.priceLoader} />
-            )}
-            <ThemedText style={styles.oneTimeText}>One-time purchase • No subscription</ThemedText>
-          </ThemedView>
+          {/* Features List */}
+          <View style={styles.features}>
+            <View style={styles.featureRow}>
+              <ThemedText style={styles.checkmark}>✓</ThemedText>
+              <ThemedText style={styles.featureText}>30+ Premium Languages</ThemedText>
+            </View>
+            <View style={styles.featureRow}>
+              <ThemedText style={styles.checkmark}>✓</ThemedText>
+              <ThemedText style={styles.featureText}>One-Time Payment</ThemedText>
+            </View>
+            <View style={styles.featureRow}>
+              <ThemedText style={styles.checkmark}>✓</ThemedText>
+              <ThemedText style={styles.featureText}>No Subscriptions</ThemedText>
+            </View>
+            <View style={styles.featureRow}>
+              <ThemedText style={styles.checkmark}>✓</ThemedText>
+              <ThemedText style={styles.featureText}>Works Offline</ThemedText>
+            </View>
+          </View>
 
-          <ThemedView style={styles.features}>
-            <ThemedText style={styles.feature}>✓ 30+ Premium Languages</ThemedText>
-            <ThemedText style={styles.feature}>✓ One-Time Payment</ThemedText>
-            <ThemedText style={styles.feature}>✓ No Subscriptions</ThemedText>
-            <ThemedText style={styles.feature}>✓ Works Offline</ThemedText>
-          </ThemedView>
-
+          {/* Purchase Button */}
           {loading ? (
-            <ActivityIndicator size="large" style={styles.loader} />
+            <ActivityIndicator size="large" style={styles.loader} color="#D4A017" />
           ) : (
             <>
               <Pressable
-                style={[styles.purchaseButton, (!price || isPurchased) && styles.purchaseButtonDisabled]}
+                style={[styles.upgradeButton, (!price || isPurchased) && styles.upgradeButtonDisabled]}
                 onPress={handlePurchase}
                 disabled={isPurchased || !price}
               >
-                <ThemedText style={styles.purchaseButtonText}>
-                  {isPurchased ? 'Already Purchased' : price ? `Unlock for ${price}` : 'Loading...'}
+                <View style={styles.upgradeButtonIcon}>
+                  <View style={styles.buttonCrownTop}>
+                    <View style={styles.buttonCrownPeak} />
+                    <View style={[styles.buttonCrownPeak, styles.buttonCrownPeakMiddle]} />
+                    <View style={styles.buttonCrownPeak} />
+                  </View>
+                  <View style={styles.buttonCrownBase} />
+                </View>
+                <ThemedText style={styles.upgradeButtonText}>
+                  {isPurchased 
+                    ? 'Already Purchased' 
+                    : price 
+                      ? `Upgrade — ${price}${originalPrice && originalPrice !== price ? '' : '/one-time'}`
+                      : 'Loading...'}
                 </ThemedText>
               </Pressable>
 
+              {/* Restore Purchase Button */}
               <Pressable style={styles.restoreButton} onPress={handleRestore}>
                 <ThemedText style={styles.restoreButtonText}>
                   Restore Purchase
@@ -186,11 +220,12 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
             </>
           )}
 
-          <Pressable style={styles.closeButton} onPress={onClose}>
-            <ThemedText style={styles.closeButtonText}>Maybe Later</ThemedText>
+          {/* Maybe Later */}
+          <Pressable style={styles.maybeLaterButton} onPress={onClose}>
+            <ThemedText style={styles.maybeLaterText}>Maybe later</ThemedText>
           </Pressable>
-        </ThemedView>
-      </ThemedView>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -198,7 +233,7 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -206,120 +241,206 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxWidth: 400,
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 32,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  closeIconButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  closeIcon: {
+    fontSize: 24,
+    color: '#999',
+    fontWeight: '300',
+  },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FFF9E6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  crownIcon: {
+    width: 36,
+    height: 32,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  crownTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: 36,
+    marginBottom: -2,
+  },
+  crownPeak: {
+    width: 8,
+    height: 12,
+    backgroundColor: '#D4A017',
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+  crownPeakMiddle: {
+    height: 16,
+  },
+  crownBase: {
+    width: 36,
+    height: 14,
+    backgroundColor: '#D4A017',
+    borderRadius: 3,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  description: {
-    fontSize: 16,
-    marginBottom: 16,
-    textAlign: 'center',
-    opacity: 0.8,
-  },
-  pricingContainer: {
+    fontWeight: '700',
+    color: '#000',
     marginBottom: 8,
-    alignItems: 'center',
-    width: '100%',
-    paddingVertical: 16,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   offerBadge: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FF3B30',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  priceDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 4,
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 16,
     paddingVertical: 12,
-  },
-  originalPrice: {
-    fontSize: 24,
-    fontWeight: '600',
-    textDecorationLine: 'line-through',
-    opacity: 0.5,
-  },
-  currentPrice: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#34C759',
-    lineHeight: 56,
-  },
-  discountBadge: {
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  discountText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  oneTimeText: {
-    fontSize: 14,
-    opacity: 0.7,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  priceLoader: {
-    marginVertical: 20,
-  },
-  purchaseButtonDisabled: {
-    opacity: 0.5,
-  },
-  features: {
-    marginTop: 24,
+    borderRadius: 12,
     marginBottom: 24,
     width: '100%',
+    alignItems: 'center',
   },
-  feature: {
-    fontSize: 16,
+  offerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F57C00',
     marginBottom: 8,
-    paddingLeft: 8,
   },
-  purchaseButton: {
-    backgroundColor: '#007AFF',
+  priceComparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  originalPrice: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#999',
+    textDecorationLine: 'line-through',
+  },
+  currentPriceSmall: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#F57C00',
+  },
+  features: {
+    width: '100%',
+    marginBottom: 28,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    paddingHorizontal: 8,
+  },
+  checkmark: {
+    fontSize: 18,
+    color: '#D4A017',
+    marginRight: 12,
+    fontWeight: '700',
+  },
+  featureText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+    lineHeight: 22,
+  },
+  upgradeButton: {
+    backgroundColor: '#D4A017',
     paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     borderRadius: 12,
     width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 12,
+    shadowColor: '#D4A017',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  purchaseButtonText: {
+  upgradeButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#CCC',
+  },
+  upgradeButtonIcon: {
+    width: 18,
+    height: 16,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  buttonCrownTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: 18,
+    marginBottom: -1,
+  },
+  buttonCrownPeak: {
+    width: 4,
+    height: 6,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 1,
+    borderTopRightRadius: 1,
+  },
+  buttonCrownPeakMiddle: {
+    height: 8,
+  },
+  buttonCrownBase: {
+    width: 18,
+    height: 7,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+  },
+  upgradeButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
   },
   restoreButton: {
     paddingVertical: 12,
-    paddingHorizontal: 32,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   restoreButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
+    color: '#666',
+    fontSize: 15,
+    fontWeight: '500',
     textAlign: 'center',
   },
-  closeButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 32,
+  maybeLaterButton: {
+    paddingVertical: 8,
   },
-  closeButtonText: {
+  maybeLaterText: {
     fontSize: 16,
+    color: '#999',
     textAlign: 'center',
-    opacity: 0.6,
   },
   loader: {
     marginVertical: 20,

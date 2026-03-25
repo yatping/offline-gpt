@@ -10,8 +10,7 @@ interface DownloadPromptModalProps {
   visible: boolean;
   title?: string;
   description?: string;
-  downloadSize?: string;
-  downloadTime?: string;
+  warning?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -19,9 +18,8 @@ interface DownloadPromptModalProps {
 export function DownloadPromptModal({
   visible,
   title = 'Download AI Model',
-  description = 'To use offline features, we need to download the AI model to your device.',
-  downloadSize = '~2 GB',
-  downloadTime = '10-20 minutes',
+  description = 'This app requires a ~1 GB AI model for offline use. Download it now for the best experience.',
+  warning = 'Without the model, chat and translation features won\'t work offline.',
   onConfirm,
   onCancel,
 }: DownloadPromptModalProps) {
@@ -36,7 +34,13 @@ export function DownloadPromptModal({
       onRequestClose={onCancel}>
       <View style={styles.modalOverlay}>
         <ThemedView style={[styles.modalContent, { backgroundColor: colors.background }]}>
-          <IconSymbol name="arrow.down.circle.fill" size={48} color={colors.tint} />
+          <TouchableOpacity style={styles.closeButton} onPress={onCancel}>
+            <IconSymbol name="xmark" size={24} color={colors.icon} />
+          </TouchableOpacity>
+
+          <View style={[styles.iconContainer]}>
+            <IconSymbol name="arrow.down.circle.fill" size={48} color={colors.tint} />
+          </View>
           
           <ThemedText type="title" style={styles.modalTitle}>
             {title}
@@ -45,34 +49,25 @@ export function DownloadPromptModal({
           <ThemedText style={[styles.modalDescription, { color: colors.icon }]}>
             {description}
           </ThemedText>
-          
-          <View style={[styles.infoBox, { backgroundColor: colors.tint + '10' }]}>
-            <View style={styles.infoRow}>
-              <IconSymbol name="arrow.down.to.line" size={20} color={colors.tint} />
-              <ThemedText style={styles.infoText}>Download Size: {downloadSize}</ThemedText>
-            </View>
-            <View style={styles.infoRow}>
-              <IconSymbol name="wifi" size={20} color={colors.tint} />
-              <ThemedText style={styles.infoText}>WiFi recommended</ThemedText>
-            </View>
-            <View style={styles.infoRow}>
-              <IconSymbol name="clock" size={20} color={colors.tint} />
-              <ThemedText style={styles.infoText}>Takes {downloadTime}</ThemedText>
-            </View>
-          </View>
 
-          <View style={styles.modalButtons}>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton, { borderColor: colors.icon + '30' }]}
-              onPress={onCancel}>
-              <ThemedText style={{ color: colors.text }}>Not Now</ThemedText>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.modalButton, styles.confirmButton, { backgroundColor: colors.tint }]}
-              onPress={onConfirm}>
-              <ThemedText style={styles.confirmButtonText}>Download</ThemedText>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.downloadButton, { backgroundColor: colors.tint }]}
+            onPress={onConfirm}>
+            <IconSymbol name="arrow.down.circle" size={20} color="#fff" />
+            <ThemedText style={styles.downloadButtonText}>Download Now</ThemedText>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.skipButton} onPress={onCancel}>
+            <ThemedText style={[styles.skipButtonText, { color: colors.icon }]}>
+              Skip for now
+            </ThemedText>
+          </TouchableOpacity>
+
+          <View style={[styles.warningBox, { backgroundColor: colors.tint + '08' }]}>
+            <IconSymbol name="exclamationmark.triangle" size={18} color={colors.icon} />
+            <ThemedText style={[styles.warningText, { color: colors.icon }]}>
+              {warning}
+            </ThemedText>
           </View>
         </ThemedView>
       </View>
@@ -90,7 +85,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     borderRadius: 20,
-    padding: 24,
+    padding: 32,
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
@@ -99,59 +94,73 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 8,
+    zIndex: 1,
+  },
+  iconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   modalTitle: {
-    marginTop: 16,
     marginBottom: 12,
     textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '600',
   },
   modalDescription: {
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 20,
+    marginBottom: 32,
   },
-  infoBox: {
+  downloadButton: {
     width: '100%',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    gap: 12,
-  },
-  infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  infoText: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  modalButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  cancelButton: {
-    borderWidth: 1,
-  },
-  confirmButton: {
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
   },
-  confirmButtonText: {
+  downloadButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  skipButton: {
+    marginTop: 16,
+    marginBottom: 24,
+    padding: 8,
+  },
+  skipButtonText: {
+    fontSize: 16,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    width: '100%',
+    padding: 16,
+    borderRadius: 8,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
