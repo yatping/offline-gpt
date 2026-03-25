@@ -20,11 +20,11 @@ type DownloadManagerContextType = {
 
 const MODEL_CONFIGS = {
   translation: {
-    url: 'https://orangolabs.com/translategemma-4b-it.Q4_K_S.gguf',
+    url: 'https://offlinegpt-assets.orangolabs.com/translategemma-4b-it.Q4_K_S.gguf',
     filename: 'translategemma-4b-it.Q4_K_S.gguf',
   },
   chat: {
-    url: 'https://orangolabs.com/llama-3.2-1b-instruct-q8_0.gguf',
+    url: 'https://offlinegpt-assets.orangolabs.com/llama-3.2-1b-instruct-q8_0.gguf',
     filename: 'llama-3.2-1b-instruct-q8_0.gguf',
   },
 };
