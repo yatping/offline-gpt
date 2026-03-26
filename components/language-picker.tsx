@@ -3,6 +3,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Language } from '@/utils/language-preferences';
+import { getOriginalPrice } from '@/utils/pricing';
 import { getProducts, hasPurchasedPremiumLanguages, initializePurchases } from '@/utils/purchase-manager';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
@@ -46,13 +47,11 @@ export function LanguagePicker({
           const product = products[0];
           setPrice(product.price || null);
           
-          // Regular price is $1.99, promotional price is $0.99 (until end of year)
-          // For one-time purchases, the store API doesn't expose original price,
-          // so we hardcode it and check if current price is lower
-          const REGULAR_PRICE = '$4.99';
-          if (product.price && product.price !== REGULAR_PRICE) {
-            // Currently showing promotional price
-            setOriginalPrice(REGULAR_PRICE);
+          // Check if there's a promotional price
+          if (product.price) {
+            const currencyCode = (product as any).priceCurrencyCode;
+            const originalPrice = getOriginalPrice(product.price, currencyCode);
+            setOriginalPrice(originalPrice);
           }
         }
       }
