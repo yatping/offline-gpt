@@ -239,42 +239,53 @@ export default function MenuScreen() {
 
         const uri = result.assets[0].uri;
 
-        // Step 1: OCR with ML Kit (script auto-detected from source language)
+        // Step 1: OCR — extract individual lines from blocks (handles multi-column layouts)
         setProcessingMsg(PROCESSING_STEPS[1]);
         const ocrResult = await TextRecognition.recognize(uri, getOCRScript(sourceLanguage.code));
-        const rawText = ocrResult.text?.trim() || '';
 
-        if (!rawText) {
+        // Use block→line structure so each text line is a separate string (avoids column merging)
+        const ocrLines: string[] = [];
+        for (const block of ocrResult.blocks ?? []) {
+          for (const line of block.lines ?? []) {
+            const t = line.text?.trim();
+            if (t) ocrLines.push(t);
+          }
+        }
+        // Fallback: split the full text if blocks had no lines
+        if (ocrLines.length === 0) {
+          ocrLines.push(...(ocrResult.text ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean));
+        }
+
+        if (ocrLines.length === 0) {
           setStep('capture');
           Alert.alert('No Text Found', 'Could not detect any text in the image. Try a clearer, well-lit photo.');
           return;
         }
 
         // Step 2: Extract raw item candidates
-        const rawItems = extractRawItems(rawText);
+        const rawItems = extractRawItems(ocrLines.join('\n'));
         if (rawItems.length === 0) {
           setStep('capture');
           Alert.alert('No Menu Items', 'Could not identify menu items. Try a clearer photo of the menu.');
           return;
         }
 
-        // Step 3: Translate items
+        // Step 3: Translate each item individually (batch translation breaks line-count alignment)
         setProcessingMsg(PROCESSING_STEPS[2]);
-        const batchOriginal = rawItems.map((r) => r.original).join('\n');
-        let translatedBatch = batchOriginal;
-        try {
-          translatedBatch = await translate(batchOriginal, sourceLanguage.code, targetLanguage.code);
-        } catch {
-          // Fall back to original text
+        const sameLanguage = sourceLanguage.code === targetLanguage.code;
+        const flatItems: ParsedMenuItem[] = [];
+        for (let i = 0; i < rawItems.length; i++) {
+          let translated = rawItems[i].original;
+          if (!sameLanguage) {
+            try {
+              const result = await translate(rawItems[i].original, sourceLanguage.code, targetLanguage.code);
+              if (result?.trim()) translated = result.trim();
+            } catch {
+              // keep original on error
+            }
+          }
+          flatItems.push({ id: `item-${i}`, original: rawItems[i].original, translated, quantity: 0 });
         }
-
-        const translatedLines = translatedBatch.split(/\r?\n/);
-        const flatItems: ParsedMenuItem[] = rawItems.map((r, i) => ({
-          id: `item-${i}`,
-          original: r.original,
-          translated: translatedLines[i]?.trim() || r.original,
-          quantity: 0,
-        }));
 
         // Step 4: AI categorization (model already initialized globally)
         setProcessingMsg(PROCESSING_STEPS[3]);
