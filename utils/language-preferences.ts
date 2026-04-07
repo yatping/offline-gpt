@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // All languages supported by fast-mlkit-translate-text and
 // react-native-vision-camera-ocr-plus (Google ML Kit Translation)
 export const LANGUAGES = [
+  { code: 'en', speechCode: 'en-US', name: 'English', isFree: true },
+  { code: 'es', speechCode: 'es-ES', name: 'Spanish', isFree: true },
   { code: 'af', speechCode: 'af-ZA', name: 'Afrikaans', isFree: false },
   { code: 'sq', speechCode: 'sq-AL', name: 'Albanian', isFree: false },
   { code: 'ar', speechCode: 'ar-SA', name: 'Arabic', isFree: false },
@@ -14,8 +16,6 @@ export const LANGUAGES = [
   { code: 'cs', speechCode: 'cs-CZ', name: 'Czech', isFree: false },
   { code: 'da', speechCode: 'da-DK', name: 'Danish', isFree: false },
   { code: 'nl', speechCode: 'nl-NL', name: 'Dutch', isFree: false },
-  { code: 'en', speechCode: 'en-US', name: 'English', isFree: true },
-  { code: 'eo', speechCode: 'eo', name: 'Esperanto', isFree: false },
   { code: 'et', speechCode: 'et-EE', name: 'Estonian', isFree: false },
   { code: 'fi', speechCode: 'fi-FI', name: 'Finnish', isFree: false },
   { code: 'fr', speechCode: 'fr-FR', name: 'French', isFree: true },
@@ -49,7 +49,6 @@ export const LANGUAGES = [
   { code: 'ru', speechCode: 'ru-RU', name: 'Russian', isFree: false },
   { code: 'sk', speechCode: 'sk-SK', name: 'Slovak', isFree: false },
   { code: 'sl', speechCode: 'sl-SI', name: 'Slovenian', isFree: false },
-  { code: 'es', speechCode: 'es-ES', name: 'Spanish', isFree: true },
   { code: 'sw', speechCode: 'sw-KE', name: 'Swahili', isFree: false },
   { code: 'tl', speechCode: 'tl-PH', name: 'Tagalog', isFree: false },
   { code: 'ta', speechCode: 'ta-IN', name: 'Tamil', isFree: false },
