@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker';
+import TextRecognition, { TextRecognitionScript } from '@react-native-ml-kit/text-recognition';
 import { useFocusEffect } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -14,7 +15,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import TextRecognition, { TextRecognitionScript } from '@react-native-ml-kit/text-recognition';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LanguagePicker } from '@/components/language-picker';
@@ -23,8 +23,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
-import { useBannerVisible, useDownloadManager } from '@/contexts/download-manager-context';
 import { useChatAIContext } from '@/contexts/chat-ai-context';
+import { useBannerVisible, useDownloadManager } from '@/contexts/download-manager-context';
 import { useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { LANGUAGES } from '@/utils/language-preferences';
@@ -48,6 +48,10 @@ interface MenuCategory {
 
 const PRICE_REGEX = /^[$¥€£₩₹฿]?\s*[\d,]+\.?\d*\s*[$¥€£₩₹฿]?$/;
 const NOISE_REGEX = /^[\d\s\-–—|/\\.,;:!?@#%^&*()[\]{}<>+=_~`'"]+$/;
+// Opening hours like "07:00–22:00", "9am-10pm", "07.00am - 10.00pm"
+const HOURS_REGEX = /\b\d{1,2}[:.]\d{2}\s*(am|pm)?\s*[-–—]\s*\d{1,2}[:.]\d{2}\s*(am|pm)?\b/i;
+// URLs and social handles
+const URL_REGEX = /(@|www\.|\.com|\.net|\.org|http)/i;
 
 /** Pick ML Kit OCR script based on source language code */
 function getOCRScript(langCode: string): TextRecognitionScript {
@@ -60,7 +64,7 @@ function getOCRScript(langCode: string): TextRecognitionScript {
   }
 }
 
-/** Parse raw OCR text into flat item candidates (original + placeholder translated) */
+/** Parse raw OCR text into flat item candidates */
 function extractRawItems(rawText: string): { original: string }[] {
   const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const items: { original: string }[] = [];
@@ -69,8 +73,8 @@ function extractRawItems(rawText: string): { original: string }[] {
     if (line.length < 2) continue;
     if (NOISE_REGEX.test(line)) continue;
     if (/^\d+$/.test(line)) continue;
-
-    // If line looks like a price, skip (will be attached during AI parse)
+    if (HOURS_REGEX.test(line)) continue;
+    if (URL_REGEX.test(line)) continue;
     if (PRICE_REGEX.test(line) && items.length > 0) continue;
 
     items.push({ original: line });
@@ -79,17 +83,17 @@ function extractRawItems(rawText: string): { original: string }[] {
   return items.slice(0, 50); // cap at 50 items for context window
 }
 
-/** Use Llama to group flat items into categories, returns MenuCategory[] */
+/** Use Llama to filter noise, identify categories, and group items */
 async function categorizeWithAI(
   items: ParsedMenuItem[],
   generateResponse: (msgs: { role: 'user' | 'assistant' | 'system'; content: string }[], cb?: (p: string) => void) => Promise<string>
 ): Promise<MenuCategory[]> {
   if (items.length === 0) return [];
 
-  const itemList = items.map((item, i) => `${i}: ${item.translated}`).join('\n');
+  const itemList = items.map((item, i) => `${i}:${item.translated}`).join('\n');
 
   const prompt =
-    `You are organizing a restaurant menu. Group these translated items into standard categories (Appetizers, Soups, Salads, Main Course, Seafood, Meat, Pasta, Pizza, Sides, Desserts, Drinks, etc.).\n\nItems:\n${itemList}\n\nReturn ONLY a JSON object mapping category names to arrays of item indices. Example: {"Appetizers":[0,1],"Main Course":[2,3]}\n\nJSON:`;
+    `Restaurant menu lines (index:text):\n${itemList}\n\nRules:\n1. SKIP noise: restaurant names, addresses, URLs, opening hours, page titles\n2. Lines that are section headers (like "Coffee Classics","Iced Coffee","Desserts") → use as category name, NOT as items\n3. Only include actual food/drink items under a category\n\nReturn ONLY JSON mapping category names to item index arrays.\nExample: {"Coffee":[5,6,7],"Tea":[11,12]}\nJSON:`;
 
   try {
     const response = await generateResponse([{ role: 'user', content: prompt }]);
@@ -110,8 +114,11 @@ async function categorizeWithAI(
     if (categories.length === 0) throw new Error('empty');
     return categories;
   } catch {
-    // Fallback: single category
-    return [{ name: 'Menu', items: items }];
+    // Fallback: single category, basic noise filtering
+    const fallback = items.filter(
+      (item) => !HOURS_REGEX.test(item.translated) && !URL_REGEX.test(item.translated)
+    );
+    return [{ name: 'Menu', items: fallback.length > 0 ? fallback : items }];
   }
 }
 
