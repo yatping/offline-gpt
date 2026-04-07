@@ -7,6 +7,7 @@ import { View } from 'react-native';
 import 'react-native-reanimated';
 
 import { ModelDownloadOverlay } from '@/components/model-download-overlay';
+import { ChatAIProvider } from '@/contexts/chat-ai-context';
 import { DownloadManagerProvider } from '@/contexts/download-manager-context';
 import { TranslationProvider } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -66,11 +67,13 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <DownloadManagerProvider>
-        <TranslationProvider>
-          <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-            <AppContent />
-          </View>
-        </TranslationProvider>
+        <ChatAIProvider>
+          <TranslationProvider>
+            <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+              <AppContent />
+            </View>
+          </TranslationProvider>
+        </ChatAIProvider>
       </DownloadManagerProvider>
     </ThemeProvider>
   );

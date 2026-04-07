@@ -1,4 +1,3 @@
-import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,7 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useBannerVisible } from '@/contexts/download-manager-context';
-import { ChatMessage, useChatAI } from '@/hooks/use-chat-ai';
+import { ChatMessage, useChatAIContext } from '@/contexts/chat-ai-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   ChatSession,
@@ -39,13 +38,10 @@ export default function ChatScreen() {
   const {
     status,
     error,
-    progress,
-    initializeModel,
     generateResponse,
-    releaseModel,
     isReady,
     isGenerating,
-  } = useChatAI();
+  } = useChatAIContext();
   
   const [showSidebar, setShowSidebar] = useState(false);
   const [inputText, setInputText] = useState('');
@@ -53,24 +49,6 @@ export default function ChatScreen() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
-  const hasInitializedRef = useRef(false);
-  
-  // Initialize model when screen is focused, release when unfocused
-  useFocusEffect(
-    useCallback(() => {
-      if (!hasInitializedRef.current && status === 'idle') {
-        console.log('Chat screen focused - checking for model');
-        hasInitializedRef.current = true;
-        initializeModel();
-      }
-
-      return () => {
-        console.log('Chat screen unfocused - releasing model');
-        hasInitializedRef.current = false;
-        releaseModel();
-      };
-    }, [])
-  );
 
   // Load sessions from storage on mount
   useEffect(() => {
@@ -334,33 +312,14 @@ export default function ChatScreen() {
 
 
   // Show loading screen while model is initializing
-  if (status === 'loading' || status === 'downloading') {
+  if (status === 'loading') {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={bannerVisible ? [] : ['top']}>
         <ThemedView style={[styles.container, styles.centerContent]}>
           <ActivityIndicator size="large" color={colors.tint} />
-          <ThemedText style={styles.loadingText}>
-            {status === 'downloading' 
-              ? `Downloading Chat AI Model... ${progress}%` 
-              : 'Loading Chat AI Model...'}
-          </ThemedText>
-          {status === 'downloading' && (
-            <View style={[styles.progressBar, { backgroundColor: colors.icon + '20' }]}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    backgroundColor: colors.tint,
-                    width: `${progress}%`
-                  }
-                ]} 
-              />
-            </View>
-          )}
+          <ThemedText style={styles.loadingText}>Loading Chat AI Model...</ThemedText>
           <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
-            {status === 'downloading'
-              ? "This may take a few minutes. Please don't close the app."
-              : 'This may take a few seconds'}
+            This may take a few seconds
           </ThemedText>
         </ThemedView>
       </SafeAreaView>
@@ -380,11 +339,6 @@ export default function ChatScreen() {
               {error}
             </ThemedText>
           )}
-          <TouchableOpacity 
-            style={[styles.retryButton, { backgroundColor: colors.tint }]}
-            onPress={initializeModel}>
-            <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
-          </TouchableOpacity>
         </ThemedView>
       </SafeAreaView>
     );
