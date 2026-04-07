@@ -1,13 +1,10 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import * as Clipboard from 'expo-clipboard';
-import { File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,9 +16,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Camera as MLKitCamera, PhotoRecognizer } from 'react-native-vision-camera-ocr-plus';
+import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DownloadPromptModal } from '@/components/download-prompt-modal';
 import { LanguagePicker } from '@/components/language-picker';
 import { PremiumLanguagesPaywall } from '@/components/premium-languages-paywall';
 import { ThemedText } from '@/components/themed-text';
@@ -46,8 +44,6 @@ export default function TranslateScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [mode, setMode] = useState<TranslateMode>('translate');
-  const [showDownloadPrompt, setShowDownloadPrompt] = useState(false);
-  const [showWarningBanner, setShowWarningBanner] = useState(false);
 
   // Text Translation State
   const [sourceText, setSourceText] = useState('');
@@ -57,16 +53,13 @@ export default function TranslateScreen() {
   const [showPaywall, setShowPaywall] = useState(false);
 
   // Camera State
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<CameraType>('back');
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [extractedText, setExtractedText] = useState<string>('');
-  const [cameraTranslatedText, setCameraTranslatedText] = useState<string>('');
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [isCameraTranslating, setIsCameraTranslating] = useState(false);
-  const [currentPage, setCurrentPage] = useState<'extract' | 'translate' | null>(null);
+  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
+  const cameraDevice = useCameraDevice('back');
+  const [liveTranslation, setLiveTranslation] = useState('');
+  const [isPickerTranslating, setIsPickerTranslating] = useState(false);
+  const [pickerResult, setPickerResult] = useState<{ original: string; translated: string } | null>(null);
   const [showCameraLanguagePicker, setShowCameraLanguagePicker] = useState(false);
-  const cameraRef = useRef<CameraView>(null);
+  const [showCameraSourcePicker, setShowCameraSourcePicker] = useState(false);
 
   // Conversation State
   const [allMessages, setAllMessages] = useState<Message[]>([]);
@@ -80,11 +73,7 @@ export default function TranslateScreen() {
   const [pendingLowerText, setPendingLowerText] = useState('');
 
   const {
-    status,
-    error,
-    progress,
     translate,
-    isReady,
     isTranslating,
     sourceLanguage,
     targetLanguage,
@@ -94,49 +83,19 @@ export default function TranslateScreen() {
     opponentLanguage: upperLanguage,
     setMyLanguage: setLowerLanguage,
     setOpponentLanguage: setUpperLanguage,
-    initializeModel,
-    releaseModel,
   } = useTranslationContext();
-
-  const hasInitializedRef = useRef(false);
-
-  // Initialize model when screen is focused, release when unfocused
-  useFocusEffect(
-    useCallback(() => {
-      // Screen is focused - check if model exists and initialize or show prompt
-      if (!hasInitializedRef.current && status === 'idle') {
-        hasInitializedRef.current = true;
-        
-        // Check if model file exists
-        const modelFile = new File(Paths.document, 'translategemma-4b-it.Q4_K_S.gguf');
-        if (modelFile.exists) {
-          // Model already downloaded, initialize directly
-          initializeModel();
-        } else {
-          // Model not downloaded, show prompt
-          setShowDownloadPrompt(true);
-        }
-      }
-
-      // Cleanup when screen loses focus
-      return () => {
-        hasInitializedRef.current = false;
-        releaseModel();
-      };
-    }, [])
-  );
 
   // Request speech permissions on mount
   useEffect(() => {
     const requestPermissions = async () => {
-      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     };
     requestPermissions();
   }, []);
 
-  // Text Translation Effect
+  // Text Translation Effect — debounce translate calls on input change
   useEffect(() => {
-    if (mode !== 'translate' || !isReady || !sourceText.trim()) {
+    if (mode !== 'translate' || !sourceText.trim()) {
       if (!sourceText.trim()) {
         setTranslatedText('');
       }
@@ -145,21 +104,19 @@ export default function TranslateScreen() {
 
     const timeoutId = setTimeout(async () => {
       try {
-        await translate(
+        const result = await translate(
           sourceText,
           sourceLanguage.code,
           targetLanguage.code,
-          (partial) => {
-            setTranslatedText(partial);
-          }
         );
-      } catch (err) {
+        setTranslatedText(result);
+      } catch {
         // Translation failed silently
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [sourceText, sourceLanguage.code, targetLanguage.code, isReady, translate, mode]);
+  }, [sourceText, sourceLanguage.code, targetLanguage.code, translate, mode]);
 
   // Speech Recognition Events
   useSpeechRecognitionEvent('result', (event) => {
@@ -200,33 +157,19 @@ export default function TranslateScreen() {
     const tempText = sourceText;
     setSourceText(translatedText);
     setTranslatedText(tempText);
-  }, [sourceLanguage, targetLanguage, sourceText, translatedText]);
+  }, [sourceLanguage, targetLanguage, sourceText, translatedText, setSourceLanguage, setTargetLanguage]);
 
   const copyToClipboard = async (text: string) => {
     try {
       await Clipboard.setStringAsync(text);
       Alert.alert('Copied', 'Text copied to clipboard');
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to copy text');
     }
   };
 
   // Camera Functions
-  function toggleCameraFacing() {
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
-  }
-
-  async function takePicture() {
-    if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync();
-      if (photo) {
-        setCapturedImage(photo.uri);
-        await processImage(photo.uri);
-      }
-    }
-  }
-
-  async function pickImage() {
+  async function pickImageAndTranslate() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -234,84 +177,29 @@ export default function TranslateScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setCapturedImage(result.assets[0].uri);
-      await processImage(result.assets[0].uri);
-    }
-  }
+      setIsPickerTranslating(true);
+      setPickerResult(null);
+      try {
+        const ocrResult = await PhotoRecognizer({ uri: result.assets[0].uri });
+        const extractedText = ocrResult.resultText?.trim() || '';
 
-  async function processImage(imageUri: string) {
-    setIsExtracting(true);
-    setExtractedText('');
-    setCameraTranslatedText('');
-    
-    try {
-      const TextRecognition = require('react-native-text-recognition').default;
-      
-      const result = await TextRecognition.recognize(imageUri);
-      
-      let extractedText: string;
-      
-      if (Array.isArray(result)) {
-        extractedText = result.join('\n');
-      } else if (typeof result === 'string') {
-        extractedText = result;
-      } else if (result && typeof result === 'object' && 'text' in result) {
-        extractedText = String(result.text);
-      } else {
-        extractedText = String(result || '');
-      }
-      
-      if (!extractedText || extractedText.trim().length === 0) {
-        setExtractedText('No text found in image');
-      } else {
-        setExtractedText(extractedText);
-      }
-      setCurrentPage('extract');
-    } catch (error) {
-      Alert.alert('Extraction Error', error instanceof Error ? error.message : 'Failed to extract text from image');
-      setExtractedText('Error extracting text from image');
-    } finally {
-      setIsExtracting(false);
-    }
-  }
-
-  async function translateCameraText() {
-    if (!extractedText || extractedText === 'No text found in image' || extractedText === 'Error extracting text from image') {
-      Alert.alert('No Text', 'Please capture an image with text first');
-      return;
-    }
-
-    setIsCameraTranslating(true);
-    setCameraTranslatedText('');
-    
-    try {
-      const sourceLang = 'en';
-      
-      const result = await translate(
-        extractedText,
-        sourceLang,
-        targetLanguage.code,
-        (partial) => {
-          setCameraTranslatedText(partial);
+        if (!extractedText) {
+          Alert.alert('No Text', 'No text was found in the selected image.');
+          return;
         }
-      );
-      
-      setCameraTranslatedText(result);
-      setCurrentPage('translate');
-    } catch (error) {
-      Alert.alert('Translation Error', error instanceof Error ? error.message : 'Failed to translate text');
-    } finally {
-      setIsCameraTranslating(false);
-    }
-  }
 
-  function retakePhoto() {
-    setCapturedImage(null);
-    setExtractedText('');
-    setCameraTranslatedText('');
-    setIsExtracting(false);
-    setIsCameraTranslating(false);
-    setCurrentPage(null);
+        const translated = await translate(
+          extractedText,
+          sourceLanguage.code,
+          targetLanguage.code,
+        );
+        setPickerResult({ original: extractedText, translated });
+      } catch (err) {
+        Alert.alert('Error', err instanceof Error ? err.message : 'Failed to process image');
+      } finally {
+        setIsPickerTranslating(false);
+      }
+    }
   }
 
   // Conversation Functions
@@ -333,18 +221,13 @@ export default function TranslateScreen() {
   const translateAndAddMessage = async (section: 'upper' | 'lower', text: string) => {
     if (!text.trim()) return;
 
-    const speaker = section === 'upper' ? 'upper' : 'lower';
     const oppositeSpeaker = section === 'upper' ? 'lower' : 'upper';
 
-    if (!isReady) {
-      return;
-    }
-
     try {
-      const sourceLanguage = section === 'upper' ? upperLanguage.code : lowerLanguage.code;
-      const targetLanguage = section === 'upper' ? lowerLanguage.code : upperLanguage.code;
+      const srcLanguage = section === 'upper' ? upperLanguage.code : lowerLanguage.code;
+      const tgtLanguage = section === 'upper' ? lowerLanguage.code : upperLanguage.code;
 
-      const translatedText = await translate(text, sourceLanguage, targetLanguage);
+      const translatedText = await translate(text, srcLanguage, tgtLanguage);
       
       const translatedMessage: Message = {
         id: `${Date.now()}-translated`,
@@ -354,7 +237,7 @@ export default function TranslateScreen() {
         isOriginal: false,
       };
       setAllMessages((prev) => [...prev, translatedMessage]);
-    } catch (error) {
+    } catch {
       Alert.alert('Translation Error', 'Failed to translate message');
     }
   };
@@ -412,7 +295,7 @@ export default function TranslateScreen() {
           setIsRecordingLower(true);
         }
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to start speech recognition');
       setIsRecordingUpper(false);
       setIsRecordingLower(false);
@@ -427,17 +310,6 @@ export default function TranslateScreen() {
         return 'Camera';
       case 'conversation':
         return 'Conversation';
-    }
-  };
-
-  const getModeIcon = (mode: TranslateMode) => {
-    switch (mode) {
-      case 'translate':
-        return 'character.bubble.fill';
-      case 'camera':
-        return 'camera.fill';
-      case 'conversation':
-        return 'bubble.left.and.bubble.right.fill';
     }
   };
 
@@ -483,46 +355,9 @@ export default function TranslateScreen() {
 
   // Render Text Translation Mode
   const renderTextTranslateMode = () => {
-    if (status === 'loading' || status === 'downloading') {
-      return (
-        <View style={[styles.container, styles.centerContent]}>
-          <ActivityIndicator size="large" color={colors.tint} />
-          <ThemedText style={styles.loadingText}>
-            {status === 'downloading' 
-              ? `Downloading Translation AI Model... ${progress}%` 
-              : 'Loading Translation AI Model...'}
-          </ThemedText>
-          {status === 'downloading' && (
-            <View style={[styles.progressBar, { backgroundColor: colors.icon + '20' }]}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    backgroundColor: colors.tint,
-                    width: `${progress}%`
-                  }
-                ]} 
-              />
-            </View>
-          )}
-          <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
-            {status === 'downloading'
-              ? "This may take a few minutes. Please don't close the app."
-              : 'This may take a few seconds'}
-          </ThemedText>
-        </View>
-      );
-    }
-
     return (
       <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss} accessible={false}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {error && (
-          <ThemedText style={[styles.errorText, { color: '#ff4444' }]}>
-            {error}
-          </ThemedText>
-        )}
-
         <ThemedView style={[styles.section, { borderColor: colors.icon + '30', backgroundColor: colorScheme === 'dark' ? '#1f2022' : '#fff' }]}>
           <TouchableOpacity
             style={styles.languageSelector}
@@ -595,7 +430,7 @@ export default function TranslateScreen() {
               </View>
             )}
             <ThemedText style={[styles.translatedText, !translatedText && { opacity: 0.5 }]}>
-              {translatedText || (isReady ? 'Translation will appear here...' : 'Loading model...')}
+              {translatedText || 'Translation will appear here...'}
             </ThemedText>
           </ScrollView>
 
@@ -651,47 +486,12 @@ export default function TranslateScreen() {
     );
   };
 
-  // Render Camera Mode
+  // Render Camera Mode — live real-time translation with react-native-vision-camera
   const renderCameraMode = () => {
-    if (status === 'loading' || status === 'downloading') {
-      return (
-        <View style={[styles.container, styles.centerContent]}>
-          <ActivityIndicator size="large" color={colors.tint} />
-          <ThemedText style={styles.loadingText}>
-            {status === 'downloading' 
-              ? `Downloading Translation AI Model... ${progress}%` 
-              : 'Loading Translation AI Model...'}
-          </ThemedText>
-          {status === 'downloading' && (
-            <View style={[styles.progressBar, { backgroundColor: colors.icon + '20' }]}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    backgroundColor: colors.tint,
-                    width: `${progress}%`
-                  }
-                ]} 
-              />
-            </View>
-          )}
-          <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
-            {status === 'downloading'
-              ? "This may take a few minutes. Please don't close the app."
-              : 'This may take a few seconds'}
-          </ThemedText>
-        </View>
-      );
-    }
-
-    if (!cameraPermission) {
-      return <View />;
-    }
-
-    if (!cameraPermission.granted) {
+    if (!hasCameraPermission) {
       return (
         <ThemedView style={[styles.container, styles.centerContent]}>
-          <ThemedText style={styles.message}>We need your permission to show the camera</ThemedText>
+          <ThemedText style={styles.message}>Camera permission is required for live translation</ThemedText>
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: colors.tint }]} 
             onPress={requestCameraPermission}
@@ -702,88 +502,33 @@ export default function TranslateScreen() {
       );
     }
 
-    if (currentPage === 'extract') {
+    if (!cameraDevice) {
       return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
-          <ScrollView style={styles.pageContainer}>
-            <ThemedView style={styles.textSection}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>Extracted Text:</ThemedText>
-              {isExtracting ? (
-                <ActivityIndicator size="large" color={colors.tint} />
-              ) : (
-                <ThemedText style={styles.extractedText}>{extractedText}</ThemedText>
-              )}
-            </ThemedView>
-
-            {extractedText && !isExtracting && extractedText !== 'No text found in image' && extractedText !== 'Error extracting text from image' && (
-              <>
-                <ThemedView style={styles.languageSection}>
-                  <ThemedText style={styles.languageLabel}>Translate to:</ThemedText>
-                  <TouchableOpacity
-                    style={[styles.languageButton, { backgroundColor: colors.tint + '20' }]}
-                    onPress={() => setShowCameraLanguagePicker(true)}>
-                    <ThemedText style={[styles.languageButtonText, { color: colors.tint }]}>
-                      {targetLanguage.name}
-                    </ThemedText>
-                    <IconSymbol name="chevron.down" size={14} color={colors.tint} />
-                  </TouchableOpacity>
-                </ThemedView>
-
-                <TouchableOpacity 
-                  style={[styles.button, { backgroundColor: colors.tint }]}
-                  onPress={translateCameraText}
-                  disabled={isCameraTranslating}
-                >
-                  {isCameraTranslating ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <IconSymbol size={24} name="arrow.left.arrow.right" color="#fff" />
-                  )}
-                  <ThemedText style={styles.buttonText}>
-                    {isCameraTranslating ? 'Translating...' : 'Translate'}
-                  </ThemedText>
-                </TouchableOpacity>
-              </>
-            )}
-
-            <TouchableOpacity 
-              style={[styles.button, { backgroundColor: colors.tint, marginTop: 10 }]} 
-              onPress={retakePhoto}
-            >
-              <IconSymbol size={24} name="camera.fill" color="#fff" />
-              <ThemedText style={styles.buttonText}>Take Another Photo</ThemedText>
-            </TouchableOpacity>
-          </ScrollView>
-          <LanguagePicker
-            visible={showCameraLanguagePicker}
-            selectedLanguage={targetLanguage}
-            languages={LANGUAGES}
-            onSelect={setTargetLanguage}
-            onClose={() => setShowCameraLanguagePicker(false)}
-            onShowPaywall={() => {
-              setShowCameraLanguagePicker(false);
-              setShowPaywall(true);
-            }}
-          />
-        </View>
+        <ThemedView style={[styles.container, styles.centerContent]}>
+          <ThemedText style={styles.message}>No camera device found</ThemedText>
+        </ThemedView>
       );
     }
 
-    if (currentPage === 'translate') {
+    // Show picker result if we processed a gallery image
+    if (pickerResult) {
       return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
           <ScrollView style={styles.pageContainer}>
             <ThemedView style={styles.textSection}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>Translation:</ThemedText>
-              <ThemedText style={styles.cameraTranslatedText}>{cameraTranslatedText}</ThemedText>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>Original Text:</ThemedText>
+              <ThemedText style={styles.extractedText}>{pickerResult.original}</ThemedText>
             </ThemedView>
-
+            <ThemedView style={styles.textSection}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>Translation ({targetLanguage.name}):</ThemedText>
+              <ThemedText style={styles.cameraTranslatedText}>{pickerResult.translated}</ThemedText>
+            </ThemedView>
             <TouchableOpacity 
               style={[styles.button, { backgroundColor: colors.tint }]} 
-              onPress={retakePhoto}
+              onPress={() => setPickerResult(null)}
             >
               <IconSymbol size={24} name="camera.fill" color="#fff" />
-              <ThemedText style={styles.buttonText}>Take Another Photo</ThemedText>
+              <ThemedText style={styles.buttonText}>Back to Camera</ThemedText>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -791,23 +536,85 @@ export default function TranslateScreen() {
     }
 
     return (
-      <ThemedView style={styles.container}>
-        <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-          <View style={styles.cameraControls}>
-            <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
-              <IconSymbol size={32} name="arrow.triangle.2.circlepath.camera" color="#fff" />
-            </TouchableOpacity>
+      <View style={styles.container}>
+        <MLKitCamera
+          style={StyleSheet.absoluteFill}
+          device={cameraDevice}
+          isActive={mode === 'camera'}
+          mode="translate"
+          options={{ from: sourceLanguage.code as any, to: targetLanguage.code as any }}
+          callback={(result) => {
+            if (typeof result === 'string') {
+              setLiveTranslation(result);
+            }
+          }}
+        />
 
-            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-              <View style={styles.captureButtonInner} />
-            </TouchableOpacity>
+        {/* Language selectors overlay */}
+        <View style={styles.cameraLanguageBar}>
+          <TouchableOpacity
+            style={[styles.cameraLangButton, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+            onPress={() => setShowCameraSourcePicker(true)}>
+            <ThemedText style={styles.cameraLangText}>{sourceLanguage.name}</ThemedText>
+            <IconSymbol name="chevron.down" size={12} color="#fff" />
+          </TouchableOpacity>
 
-            <TouchableOpacity style={styles.controlButton} onPress={pickImage}>
-              <IconSymbol size={32} name="photo.on.rectangle" color="#fff" />
-            </TouchableOpacity>
+          <IconSymbol name="arrow.right" size={16} color="#fff" />
+
+          <TouchableOpacity
+            style={[styles.cameraLangButton, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+            onPress={() => setShowCameraLanguagePicker(true)}>
+            <ThemedText style={styles.cameraLangText}>{targetLanguage.name}</ThemedText>
+            <IconSymbol name="chevron.down" size={12} color="#fff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.cameraLangButton, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+            onPress={pickImageAndTranslate}
+            disabled={isPickerTranslating}>
+            {isPickerTranslating ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <IconSymbol name="photo.on.rectangle" size={20} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Live translation overlay */}
+        {liveTranslation ? (
+          <View style={styles.liveTranslationOverlay}>
+            <ThemedText style={styles.liveTranslationText}>{liveTranslation}</ThemedText>
           </View>
-        </CameraView>
-      </ThemedView>
+        ) : null}
+
+        <LanguagePicker
+          visible={showCameraSourcePicker}
+          selectedLanguage={sourceLanguage}
+          languages={LANGUAGES}
+          onSelect={setSourceLanguage}
+          onClose={() => setShowCameraSourcePicker(false)}
+          onShowPaywall={() => {
+            setShowCameraSourcePicker(false);
+            setShowPaywall(true);
+          }}
+        />
+        <LanguagePicker
+          visible={showCameraLanguagePicker}
+          selectedLanguage={targetLanguage}
+          languages={LANGUAGES}
+          onSelect={setTargetLanguage}
+          onClose={() => setShowCameraLanguagePicker(false)}
+          onShowPaywall={() => {
+            setShowCameraLanguagePicker(false);
+            setShowPaywall(true);
+          }}
+        />
+        <PremiumLanguagesPaywall
+          visible={showPaywall}
+          onClose={() => setShowPaywall(false)}
+          onPurchaseComplete={() => setShowPaywall(false)}
+        />
+      </View>
     );
   };
 
@@ -927,37 +734,6 @@ export default function TranslateScreen() {
   };
 
   const renderConversationMode = () => {
-    if (status === 'loading' || status === 'downloading') {
-      return (
-        <View style={[styles.container, styles.centerContent]}>
-          <ActivityIndicator size="large" color={colors.tint} />
-          <ThemedText style={styles.loadingText}>
-            {status === 'downloading' 
-              ? `Downloading Translation AI Model... ${progress}%` 
-              : 'Loading Translation AI Model...'}
-          </ThemedText>
-          {status === 'downloading' && (
-            <View style={[styles.progressBar, { backgroundColor: colors.icon + '20' }]}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    backgroundColor: colors.tint,
-                    width: `${progress}%`
-                  }
-                ]} 
-              />
-            </View>
-          )}
-          <ThemedText style={[styles.loadingSubtext, { color: colors.icon }]}>
-            {status === 'downloading'
-              ? "This may take a few minutes. Please don't close the app."
-              : 'This may take a few seconds'}
-          </ThemedText>
-        </View>
-      );
-    }
-
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ChatSection
@@ -1010,31 +786,6 @@ export default function TranslateScreen() {
 
   return (
     <SafeAreaView style={[styles.safeContainer, { backgroundColor: colors.background }]} edges={['top']}>
-      <DownloadPromptModal
-        visible={showDownloadPrompt}
-        title="Download AI Translation Model"
-        description="AI Translate requires a ~2.6 GB AI model for offline use. Download it now for the best experience."
-        warning="Without the model, AI Translate features won't work offline."
-        onConfirm={() => {
-          setShowDownloadPrompt(false);
-          setShowWarningBanner(false);
-          initializeModel();
-        }}
-        onCancel={() => {
-          setShowDownloadPrompt(false);
-          setShowWarningBanner(true);
-        }}
-      />
-      {showWarningBanner && status === 'idle' && (
-        <TouchableOpacity
-          style={[styles.warningBanner, { backgroundColor: '#ff9800' }]}
-          onPress={() => setShowDownloadPrompt(true)}>
-          <IconSymbol name="exclamationmark.triangle.fill" size={20} color="#fff" />
-          <ThemedText style={styles.warningBannerText}>
-            AI model not downloaded. Tap to download.
-          </ThemedText>
-        </TouchableOpacity>
-      )}
       <TopTabBar />
       {mode === 'translate' && renderTextTranslateMode()}
       {mode === 'camera' && renderCameraMode()}
@@ -1055,27 +806,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  loadingSubtext: {
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  progressBar: {
-    width: '80%',
-    height: 8,
-    borderRadius: 4,
-    marginTop: 16,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
   topTabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -1090,11 +820,6 @@ const styles = StyleSheet.create({
   topTabButtonText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  errorText: {
-    fontSize: 14,
-    marginTop: 8,
-    marginHorizontal: 20,
   },
   section: {
     flex: 1,
@@ -1168,45 +893,49 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   // Camera styles
-  camera: {
-    flex: 1,
-  },
   message: {
     textAlign: 'center',
     paddingBottom: 10,
     marginTop: 16,
   },
-  cameraControls: {
-    flex: 1,
-    backgroundColor: 'transparent',
+  cameraLanguageBar: {
+    position: 'absolute',
+    top: 16,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-    paddingBottom: 40,
-    paddingHorizontal: 20,
-  },
-  controlButton: {
-    padding: 15,
-    borderRadius: 50,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
   },
-  captureButtonInner: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#000',
+  cameraLangButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  cameraLangText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  liveTranslationOverlay: {
+    position: 'absolute',
+    bottom: 40,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 12,
+    padding: 16,
+  },
+  liveTranslationText: {
+    color: '#fff',
+    fontSize: 18,
+    lineHeight: 26,
+    textAlign: 'center',
   },
   pageContainer: {
     flex: 1,
@@ -1349,18 +1078,5 @@ const styles = StyleSheet.create({
   divider: {
     height: 2,
     marginHorizontal: 16,
-  },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  warningBannerText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

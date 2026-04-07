@@ -7,7 +7,7 @@ import { View } from 'react-native';
 import 'react-native-reanimated';
 
 import { DownloadManagerProvider } from '@/contexts/download-manager-context';
-import { TranslationProvider, useTranslationContext } from '@/contexts/translation-context';
+import { TranslationProvider } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOTAUpdates } from '@/hooks/use-ota-updates';
 
@@ -15,8 +15,6 @@ import { useOTAUpdates } from '@/hooks/use-ota-updates';
 SplashScreen.preventAutoHideAsync();
 
 function AppContent() {
-  const colorScheme = useColorScheme();
-  const { isDownloading, isLoading, progress } = useTranslationContext();
   return (
     <>
       <Stack>

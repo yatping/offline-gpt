@@ -2,7 +2,7 @@ import { File, Paths } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 
-export type ModelType = 'translation' | 'chat';
+export type ModelType = 'chat';
 
 type ModelDownloadState = {
   status: 'idle' | 'downloading' | 'completed' | 'error';
@@ -11,7 +11,6 @@ type ModelDownloadState = {
 };
 
 type DownloadManagerContextType = {
-  translationModel: ModelDownloadState;
   chatModel: ModelDownloadState;
   downloadModel: (type: ModelType) => Promise<void>;
   cancelDownload: (type: ModelType) => void;
@@ -19,10 +18,6 @@ type DownloadManagerContextType = {
 };
 
 const MODEL_CONFIGS = {
-  translation: {
-    url: 'https://offlinegpt-assets.orangolabs.com/translategemma-4b-it.Q4_K_S.gguf',
-    filename: 'translategemma-4b-it.Q4_K_S.gguf',
-  },
   chat: {
     url: 'https://offlinegpt-assets.orangolabs.com/llama-3.2-1b-instruct-q8_0.gguf',
     filename: 'llama-3.2-1b-instruct-q8_0.gguf',
@@ -32,12 +27,6 @@ const MODEL_CONFIGS = {
 const DownloadManagerContext = createContext<DownloadManagerContextType | null>(null);
 
 export function DownloadManagerProvider({ children }: { children: React.ReactNode }) {
-  const [translationModel, setTranslationModel] = useState<ModelDownloadState>({
-    status: 'idle',
-    progress: 0,
-    error: null,
-  });
-
   const [chatModel, setChatModel] = useState<ModelDownloadState>({
     status: 'idle',
     progress: 0,
@@ -45,10 +34,8 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
   });
 
   const downloadResumablesRef = useRef<{
-    translation: FileSystem.DownloadResumable | null;
     chat: FileSystem.DownloadResumable | null;
   }>({
-    translation: null,
     chat: null,
   });
 
@@ -60,23 +47,21 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
 
   const downloadModel = async (type: ModelType) => {
     const config = MODEL_CONFIGS[type];
-    const setState = type === 'translation' ? setTranslationModel : setChatModel;
 
     // Check if already downloaded
     if (isModelDownloaded(type)) {
-      setState({ status: 'completed', progress: 100, error: null });
+      setChatModel({ status: 'completed', progress: 100, error: null });
       return;
     }
 
     // Check if already downloading
-    const currentState = type === 'translation' ? translationModel : chatModel;
-    if (currentState.status === 'downloading') {
+    if (chatModel.status === 'downloading') {
       console.log(`${type} model already downloading, skipping...`);
       return;
     }
 
     try {
-      setState({ status: 'downloading', progress: 0, error: null });
+      setChatModel({ status: 'downloading', progress: 0, error: null });
 
       const downloadPath = `${FileSystem.documentDirectory}${config.filename}`;
 
@@ -88,7 +73,7 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
           const progress =
             downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
           const percentage = Math.round(progress * 100);
-          setState((prev) => ({ ...prev, progress: percentage }));
+          setChatModel((prev) => ({ ...prev, progress: percentage }));
           console.log(`${type} model download progress: ${percentage}%`);
         }
       );
@@ -101,29 +86,29 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
 
       if (!result) {
         console.log(`${type} model download cancelled`);
-        setState({ status: 'idle', progress: 0, error: null });
+        setChatModel({ status: 'idle', progress: 0, error: null });
         return;
       }
 
-      setState({ status: 'completed', progress: 100, error: null });
+      setChatModel({ status: 'completed', progress: 100, error: null });
       console.log(`${type} model downloaded successfully to:`, result.uri);
     } catch (err) {
       downloadResumablesRef.current[type] = null;
 
       if (err instanceof Error && err.message.includes('cancelled')) {
         console.log(`${type} model download was cancelled`);
-        setState({ status: 'idle', progress: 0, error: null });
+        setChatModel({ status: 'idle', progress: 0, error: null });
         return;
       }
 
       // Check if file exists despite error
-      const recheckFile = new File(Paths.document, config.filename);
+      const recheckFile = new File(Paths.document, MODEL_CONFIGS[type].filename);
       if (recheckFile.exists) {
         console.log(`${type} model file exists despite error, marking as completed`);
-        setState({ status: 'completed', progress: 100, error: null });
+        setChatModel({ status: 'completed', progress: 100, error: null });
       } else {
         console.error(`${type} model download failed:`, err);
-        setState({
+        setChatModel({
           status: 'error',
           progress: 0,
           error: err instanceof Error ? err.message : 'Download failed',
@@ -138,16 +123,12 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
       console.log(`Cancelling ${type} model download...`);
       downloadResumable.pauseAsync().catch(() => {});
       downloadResumablesRef.current[type] = null;
-      const setState = type === 'translation' ? setTranslationModel : setChatModel;
-      setState({ status: 'idle', progress: 0, error: null });
+      setChatModel({ status: 'idle', progress: 0, error: null });
     }
   };
 
   // Check initial state of models
   useEffect(() => {
-    if (isModelDownloaded('translation')) {
-      setTranslationModel({ status: 'completed', progress: 100, error: null });
-    }
     if (isModelDownloaded('chat')) {
       setChatModel({ status: 'completed', progress: 100, error: null });
     }
@@ -156,9 +137,6 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
   // Cleanup on unmount (only when app is truly closing)
   useEffect(() => {
     return () => {
-      if (downloadResumablesRef.current.translation) {
-        downloadResumablesRef.current.translation.pauseAsync().catch(() => {});
-      }
       if (downloadResumablesRef.current.chat) {
         downloadResumablesRef.current.chat.pauseAsync().catch(() => {});
       }
@@ -168,7 +146,6 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
   return (
     <DownloadManagerContext.Provider
       value={{
-        translationModel,
         chatModel,
         downloadModel,
         cancelDownload,

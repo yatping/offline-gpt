@@ -16,7 +16,11 @@ import {
 } from '@/utils/language-preferences';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
-type TranslationContextType = ReturnType<typeof useTranslation> & {
+type TranslationContextType = {
+  translate: (text: string, sourceLanguage: string, targetLanguage: string) => Promise<string>;
+  isTranslating: boolean;
+  error: string | null;
+
   // Text translation languages (index/camera screens)
   sourceLanguage: Language;
   targetLanguage: Language;
@@ -33,7 +37,7 @@ type TranslationContextType = ReturnType<typeof useTranslation> & {
 const TranslationContext = createContext<TranslationContextType | null>(null);
 
 export function TranslationProvider({ children }: { children: ReactNode }) {
-  const translation = useTranslation();
+  const { translate, isTranslating, error } = useTranslation();
   
   // Language preferences state
   const [sourceLanguage, setSourceLanguageState] = useState<Language>(DEFAULT_SOURCE_LANGUAGE);
@@ -41,10 +45,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   const [myLanguage, setMyLanguageState] = useState<Language>(DEFAULT_MY_LANGUAGE);
   const [opponentLanguage, setOpponentLanguageState] = useState<Language>(DEFAULT_OPPONENT_LANGUAGE);
 
-  // Don't initialize the model automatically - let components trigger it when needed
-  // useEffect(() => {
-  //   translation.initializeModel();
-  // }, [translation.initializeModel]);
+  // Don't initialize the model automatically - ML Kit initializes on first use
 
   // Load saved language preferences on mount
   useEffect(() => {
@@ -124,7 +125,9 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   return (
     <TranslationContext.Provider 
       value={{
-        ...translation,
+        translate,
+        isTranslating,
+        error,
         sourceLanguage,
         targetLanguage,
         setSourceLanguage,

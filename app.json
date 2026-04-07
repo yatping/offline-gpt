@@ -17,10 +17,7 @@
         "NSMicrophoneUsageDescription": "Microphone is required for speech recognition.",
         "NSSpeechRecognitionUsageDescription": "Speech recognition is required to translate conversations."
       },
-      "entitlements": {
-        "com.apple.developer.kernel.increased-memory-limit": true,
-        "com.apple.developer.kernel.extended-virtual-addressing": true
-      }
+      "entitlements": {}
     },
     "android": {
       "adaptiveIcon": {
@@ -44,6 +41,14 @@
       "expo-router",
       "expo-dev-client",
       [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.5"
+          }
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
@@ -53,15 +58,6 @@
           "dark": {
             "backgroundColor": "#000000"
           }
-        }
-      ],
-      [
-        "llama.rn",
-        {
-          "enableEntitlements": true,
-          "entitlementsProfile": "production",
-          "forceCxx20": true,
-          "enableOpenCLAndHexagon": true
         }
       ],
       "expo-speech-recognition"
