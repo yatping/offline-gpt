@@ -110,8 +110,9 @@ export default function TranslateScreen() {
           targetLanguage.code,
         );
         setTranslatedText(result);
-      } catch {
-        // Translation failed silently
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setTranslatedText(`Error: ${msg}`);
       }
     }, 500);
 
@@ -237,8 +238,9 @@ export default function TranslateScreen() {
         isOriginal: false,
       };
       setAllMessages((prev) => [...prev, translatedMessage]);
-    } catch {
-      Alert.alert('Translation Error', 'Failed to translate message');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert('Translation Error', msg);
     }
   };
 

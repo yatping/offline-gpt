@@ -23,13 +23,13 @@ export function useTranslation() {
       try {
         const result = await TranslateText.translate({
           text,
-          sourceLanguage,
-          targetLanguage,
+          sourceLanguage: sourceLanguage as any,
+          targetLanguage: targetLanguage as any,
           downloadModelIfNeeded: true,
         });
 
         setStatus('idle');
-        return result ?? '';
+        return (result as unknown as string) ?? '';
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Translation failed';
         setError(message);
