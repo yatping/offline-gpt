@@ -17,6 +17,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { useBannerVisible } from '@/contexts/download-manager-context';
 import { ChatMessage, useChatAI } from '@/hooks/use-chat-ai';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -33,6 +34,7 @@ import {
 export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const bannerVisible = useBannerVisible();
   
   const {
     status,
@@ -334,7 +336,7 @@ export default function ChatScreen() {
   // Show loading screen while model is initializing
   if (status === 'loading' || status === 'downloading') {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={bannerVisible ? [] : ['top']}>
         <ThemedView style={[styles.container, styles.centerContent]}>
           <ActivityIndicator size="large" color={colors.tint} />
           <ThemedText style={styles.loadingText}>
@@ -367,7 +369,7 @@ export default function ChatScreen() {
 
   if (status === 'error') {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={bannerVisible ? [] : ['top']}>
         <ThemedView style={[styles.container, styles.centerContent]}>
           <IconSymbol name="exclamationmark.triangle" size={64} color="#ff4444" />
           <ThemedText style={[styles.errorText, { color: '#ff4444' }]}>
@@ -390,7 +392,7 @@ export default function ChatScreen() {
   
   return (
     <View style={styles.container}>
-      <SafeAreaView style={{ backgroundColor: colors.background }} edges={['top']}>
+      <SafeAreaView style={{ backgroundColor: colors.background }} edges={bannerVisible ? [] : ['top']}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.menuButton}
@@ -495,7 +497,7 @@ export default function ChatScreen() {
             style={styles.overlay}
             onPress={() => setShowSidebar(false)}
           />
-          <SafeAreaView style={[styles.sidebar, { backgroundColor: colors.background, borderRightColor: colors.icon + '30' }]} edges={['top', 'bottom']}>
+          <SafeAreaView style={[styles.sidebar, { backgroundColor: colors.background, borderRightColor: colors.icon + '30' }]} edges={bannerVisible ? ['bottom'] : ['top', 'bottom']}>
             <View style={styles.sidebarHeader}>
               <ThemedText style={styles.sidebarTitle}>Chat History</ThemedText>
               <TouchableOpacity onPress={createNewChat}>

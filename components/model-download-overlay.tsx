@@ -1,4 +1,5 @@
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DownloadPromptModal } from '@/components/download-prompt-modal';
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +11,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 export function ModelDownloadOverlay() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
   const { chatModel, showPrompt, dismissPrompt, acceptPrompt, downloadModel } = useDownloadManager();
 
   const isDownloading = chatModel.status === 'downloading';
@@ -30,7 +32,13 @@ export function ModelDownloadOverlay() {
       {showBanner && (
         <TouchableOpacity
           activeOpacity={isDownloading ? 1 : 0.8}
-          style={[styles.banner, { backgroundColor: isDownloading ? colors.tint : '#ff9800' }]}
+          style={[
+            styles.banner,
+            {
+              backgroundColor: isDownloading ? colors.tint : '#ff9800',
+              paddingTop: insets.top + 10,
+            },
+          ]}
           onPress={isDownloading ? undefined : () => downloadModel('chat')}
         >
           <View style={styles.bannerContent}>

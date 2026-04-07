@@ -182,3 +182,11 @@ export function useDownloadManager() {
   }
   return context;
 }
+
+/** Returns true when the global download banner is visible (model missing or downloading). */
+export function useBannerVisible(): boolean {
+  const { chatModel, showPrompt } = useDownloadManager();
+  const isDownloading = chatModel.status === 'downloading';
+  const isNotDownloaded = chatModel.status === 'idle' || chatModel.status === 'error';
+  return isDownloading || (isNotDownloaded && !showPrompt);
+}

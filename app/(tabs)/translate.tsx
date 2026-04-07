@@ -26,6 +26,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { useBannerVisible } from '@/contexts/download-manager-context';
 import { useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { LANGUAGES } from '@/utils/language-preferences';
@@ -43,6 +44,7 @@ type Message = {
 export default function TranslateScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const bannerVisible = useBannerVisible();
   const [mode, setMode] = useState<TranslateMode>('translate');
 
   // Text Translation State
@@ -812,7 +814,7 @@ export default function TranslateScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeContainer, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safeContainer, { backgroundColor: colors.background }]} edges={bannerVisible ? [] : ['top']}>
       <TopTabBar />
       {mode === 'translate' && renderTextTranslateMode()}
       {mode === 'camera' && renderCameraMode()}

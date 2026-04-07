@@ -35,24 +35,11 @@ export function useChatAI() {
       setError(null);
 
       const modelFile = new File(Paths.document, MODEL_FILENAME);
-      
-      // Check if model exists in documents directory
+
+      // Only initialize if the model is already downloaded
       if (!modelFile.exists) {
-        setStatus('downloading');
-        await downloadManager.downloadModel('chat');
-        
-        // Check download result
-        if (downloadManager.chatModel.status === 'error') {
-          setError(downloadManager.chatModel.error || 'Failed to download chat AI model');
-          setStatus('error');
-          return;
-        }
-        
-        if (!new File(Paths.document, MODEL_FILENAME).exists) {
-          setError('Model download was cancelled or incomplete');
-          setStatus('idle');
-          return;
-        }
+        setStatus('idle');
+        return;
       }
 
       setStatus('loading');
@@ -100,7 +87,7 @@ export function useChatAI() {
     } finally {
       isInitializingRef.current = false;
     }
-  }, [downloadManager]);
+  }, []);
 
   // Generate chat response
   const generateResponse = useCallback(
