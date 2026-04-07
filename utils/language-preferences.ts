@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// All languages supported by @react-native-ml-kit/translate-text and
+// All languages supported by fast-mlkit-translate-text and
 // react-native-vision-camera-ocr-plus (Google ML Kit Translation)
 export const LANGUAGES = [
   { code: 'af', speechCode: 'af-ZA', name: 'Afrikaans', isFree: false },

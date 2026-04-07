@@ -1,11 +1,12 @@
-import TranslateText from '@react-native-ml-kit/translate-text';
-import { useCallback, useState } from 'react';
+import FastTranslator from 'fast-mlkit-translate-text';
+import { useCallback, useRef, useState } from 'react';
 
 export type TranslationStatus = 'idle' | 'translating' | 'error';
 
 export function useTranslation() {
   const [status, setStatus] = useState<TranslationStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const preparedPairRef = useRef<{ source: string; target: string } | null>(null);
 
   const translate = useCallback(
     async (
@@ -21,20 +22,35 @@ export function useTranslation() {
       setError(null);
 
       try {
-        const result = await TranslateText.translate({
-          text,
-          sourceLanguage: sourceLanguage as any,
-          targetLanguage: targetLanguage as any,
-          downloadModelIfNeeded: true,
-        });
+        const sourceName = FastTranslator.languageFromTag(sourceLanguage);
+        const targetName = FastTranslator.languageFromTag(targetLanguage);
 
-        setStatus('idle');
-        return (result as unknown as string) ?? '';
+        if (!sourceName || !targetName) {
+          throw new Error(`Unsupported language pair: ${sourceLanguage} → ${targetLanguage}`);
+        }
+
+        const needsPrepare =
+          preparedPairRef.current?.source !== sourceLanguage ||
+          preparedPairRef.current?.target !== targetLanguage;
+
+        if (needsPrepare) {
+          await FastTranslator.prepare({
+            source: sourceName,
+            target: targetName,
+            downloadIfNeeded: true,
+          });
+          preparedPairRef.current = { source: sourceLanguage, target: targetLanguage };
+        }
+
+        const result = await FastTranslator.translate(text);
+        return result ?? '';
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Translation failed';
+        const message = err instanceof Error ? err.message : String(err);
         setError(message);
         setStatus('error');
-        throw err;
+        throw new Error(message);
+      } finally {
+        setStatus((prev) => (prev === 'translating' ? 'idle' : prev));
       }
     },
     []
