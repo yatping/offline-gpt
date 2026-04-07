@@ -2,7 +2,7 @@
   "expo": {
     "name": "OfflineGPT",
     "slug": "offline-gpt",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "offlinegpt",
@@ -72,7 +72,7 @@
         "projectId": "d36df05f-69d4-43e8-b80e-eac52832ffc6"
       }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.3.0",
     "updates": {
       "url": "https://u.expo.dev/d36df05f-69d4-43e8-b80e-eac52832ffc6"
     }
