@@ -4,7 +4,7 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -56,6 +56,7 @@ export default function TranslateScreen() {
   const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
   const cameraDevice = useCameraDevice('back');
   const [liveTranslation, setLiveTranslation] = useState('');
+  const clearTranslationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPickerTranslating, setIsPickerTranslating] = useState(false);
   const [pickerResult, setPickerResult] = useState<{ original: string; translated: string } | null>(null);
   const [showCameraLanguagePicker, setShowCameraLanguagePicker] = useState(false);
@@ -92,6 +93,17 @@ export default function TranslateScreen() {
     };
     requestPermissions();
   }, []);
+
+  // Clear live translation timer when leaving camera mode
+  useEffect(() => {
+    if (mode !== 'camera') {
+      if (clearTranslationTimer.current) {
+        clearTimeout(clearTranslationTimer.current);
+        clearTranslationTimer.current = null;
+      }
+      setLiveTranslation('');
+    }
+  }, [mode]);
 
   // Text Translation Effect — debounce translate calls on input change
   useEffect(() => {
@@ -546,8 +558,21 @@ export default function TranslateScreen() {
           mode="translate"
           options={{ from: sourceLanguage.code as any, to: targetLanguage.code as any }}
           callback={(result) => {
-            if (typeof result === 'string') {
+            if (typeof result === 'string' && result.trim()) {
+              // Cancel any pending clear — new text detected
+              if (clearTranslationTimer.current) {
+                clearTimeout(clearTranslationTimer.current);
+                clearTranslationTimer.current = null;
+              }
               setLiveTranslation(result);
+            } else {
+              // No text in frame — clear after a short delay to avoid flashing
+              if (!clearTranslationTimer.current) {
+                clearTranslationTimer.current = setTimeout(() => {
+                  setLiveTranslation('');
+                  clearTranslationTimer.current = null;
+                }, 1200);
+              }
             }
           }}
         />
