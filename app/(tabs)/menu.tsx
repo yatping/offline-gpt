@@ -35,8 +35,9 @@ type MenuStep = 'capture' | 'processing' | 'menu' | 'order';
 
 interface ParsedMenuItem {
   id: string;
-  original: string;
-  translated: string;
+  original: string;   // OCR source text — shown to server
+  english: string;    // English translation — used by AI categorizer
+  translated: string; // Target language — shown to user when browsing
   price?: string;
   quantity: number;
 }
@@ -90,7 +91,7 @@ async function categorizeWithAI(
 ): Promise<MenuCategory[]> {
   if (items.length === 0) return [];
 
-  const itemList = items.map((item, i) => `${i}:${item.translated}`).join('\n');
+  const itemList = items.map((item, i) => `${i}:${item.english}`).join('\n');
 
   const prompt =
     `Restaurant menu lines (index:text):\n${itemList}\n\nRules:\n1. SKIP noise: restaurant names, addresses, URLs, opening hours, page titles\n2. Lines that are section headers (like "Coffee Classics","Iced Coffee","Desserts") → use as category name, NOT as items\n3. Only include actual food/drink items under a category\n\nReturn ONLY JSON mapping category names to item index arrays.\nExample: {"Coffee":[5,6,7],"Tea":[11,12]}\nJSON:`;
@@ -277,22 +278,51 @@ export default function MenuScreen() {
           return;
         }
 
-        // Step 3: Translate each item individually (batch translation breaks line-count alignment)
+        // Step 3: Translate each item — first to English (for AI), then to target language (for display)
         setProcessingMsg(PROCESSING_STEPS[2]);
+        const sourceIsEnglish = sourceLanguage.code === 'en';
+        const targetIsEnglish = targetLanguage.code === 'en';
         const sameLanguage = sourceLanguage.code === targetLanguage.code;
-        const flatItems: ParsedMenuItem[] = [];
-        for (let i = 0; i < rawItems.length; i++) {
-          let translated = rawItems[i].original;
-          if (!sameLanguage) {
+
+        // Build English labels (used by AI categorizer)
+        const englishTexts: string[] = [];
+        for (const item of rawItems) {
+          if (sourceIsEnglish) {
+            englishTexts.push(item.original);
+          } else {
             try {
-              const result = await translate(rawItems[i].original, sourceLanguage.code, targetLanguage.code);
-              if (result?.trim()) translated = result.trim();
+              const en = await translate(item.original, sourceLanguage.code, 'en');
+              englishTexts.push(en?.trim() || item.original);
             } catch {
-              // keep original on error
+              englishTexts.push(item.original);
             }
           }
-          flatItems.push({ id: `item-${i}`, original: rawItems[i].original, translated, quantity: 0 });
         }
+
+        // Build target language labels (shown to user)
+        const translatedTexts: string[] = [];
+        for (let i = 0; i < rawItems.length; i++) {
+          if (sameLanguage) {
+            translatedTexts.push(rawItems[i].original);
+          } else if (targetIsEnglish) {
+            translatedTexts.push(englishTexts[i]); // reuse — no extra call needed
+          } else {
+            try {
+              const t = await translate(rawItems[i].original, sourceLanguage.code, targetLanguage.code);
+              translatedTexts.push(t?.trim() || rawItems[i].original);
+            } catch {
+              translatedTexts.push(rawItems[i].original);
+            }
+          }
+        }
+
+        const flatItems: ParsedMenuItem[] = rawItems.map((r, i) => ({
+          id: `item-${i}`,
+          original: r.original,
+          english: englishTexts[i],
+          translated: translatedTexts[i],
+          quantity: 0,
+        }));
 
         // Step 4: AI categorization (model already initialized globally)
         setProcessingMsg(PROCESSING_STEPS[3]);
@@ -510,7 +540,8 @@ export default function MenuScreen() {
       <OrderModal
         visible={showOrderModal}
         items={selectedItems}
-        originalLanguage={sourceLanguage.name}
+        sourceLanguage={sourceLanguage.name}
+        targetLanguage={targetLanguage.name}
         colors={colors}
         isDark={isDark}
         onClose={() => setShowOrderModal(false)}
@@ -600,7 +631,8 @@ function MenuItemCard({
 function OrderModal({
   visible,
   items,
-  originalLanguage,
+  sourceLanguage,
+  targetLanguage,
   colors,
   isDark,
   onClose,
@@ -608,12 +640,15 @@ function OrderModal({
 }: {
   visible: boolean;
   items: ParsedMenuItem[];
-  originalLanguage: string;
+  sourceLanguage: string;
+  targetLanguage: string;
   colors: (typeof Colors)['light'];
   isDark: boolean;
   onClose: () => void;
   onReset: () => void;
 }) {
+  const sameLanguage = sourceLanguage === targetLanguage;
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.modalRoot, { backgroundColor: isDark ? '#151718' : '#f2f2f6' }]}>
@@ -633,16 +668,16 @@ function OrderModal({
           <View style={[styles.instructionCard, { backgroundColor: colors.tint + '15', borderColor: colors.tint + '40' }]}>
             <IconSymbol name="info.circle.fill" size={18} color={colors.tint} />
             <ThemedText style={[styles.instructionText, { color: colors.tint }]}>
-              Show this card to your server to place your order in {originalLanguage}.
+              Show the card below to your server to place your order in {sourceLanguage}.
             </ThemedText>
           </View>
 
-          {/* Order card — original language */}
+          {/* Order card — source language (for server) */}
           <View style={[styles.orderCard, { backgroundColor: isDark ? '#1f2022' : '#fff', borderColor: colors.icon + '20' }]}>
             <View style={[styles.orderCardHeader, { borderBottomColor: colors.icon + '15' }]}>
               <IconSymbol name="fork.knife" size={18} color={colors.tint} />
               <ThemedText style={[styles.orderCardTitle, { color: colors.tint }]}>
-                Order ({originalLanguage})
+                For your server ({sourceLanguage})
               </ThemedText>
             </View>
 
@@ -652,6 +687,11 @@ function OrderModal({
                   <ThemedText style={[styles.orderItemOriginal, { color: colors.text }]}>
                     {item.original}
                   </ThemedText>
+                  {!sameLanguage && (
+                    <ThemedText style={[styles.orderItemTranslated, { color: colors.icon }]}>
+                      {item.translated}
+                    </ThemedText>
+                  )}
                   {item.price && (
                     <ThemedText style={[styles.orderItemPrice, { color: colors.icon }]}>
                       {item.price}
@@ -1130,6 +1170,11 @@ const styles = StyleSheet.create({
   orderItemOriginal: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  orderItemTranslated: {
+    fontSize: 13,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   orderItemPrice: {
     fontSize: 13,
