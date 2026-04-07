@@ -15,6 +15,9 @@ type DownloadManagerContextType = {
   downloadModel: (type: ModelType) => Promise<void>;
   cancelDownload: (type: ModelType) => void;
   isModelDownloaded: (type: ModelType) => boolean;
+  showPrompt: boolean;
+  dismissPrompt: () => void;
+  acceptPrompt: () => void;
 };
 
 const MODEL_CONFIGS = {
@@ -32,6 +35,8 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
     progress: 0,
     error: null,
   });
+
+  const [showPrompt, setShowPrompt] = useState(false);
 
   const downloadResumablesRef = useRef<{
     chat: FileSystem.DownloadResumable | null;
@@ -131,6 +136,9 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
   useEffect(() => {
     if (isModelDownloaded('chat')) {
       setChatModel({ status: 'completed', progress: 100, error: null });
+    } else {
+      // Show download prompt on app open if model is missing
+      setShowPrompt(true);
     }
   }, []);
 
@@ -143,6 +151,13 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
     };
   }, []);
 
+  const dismissPrompt = () => setShowPrompt(false);
+
+  const acceptPrompt = () => {
+    setShowPrompt(false);
+    downloadModel('chat');
+  };
+
   return (
     <DownloadManagerContext.Provider
       value={{
@@ -150,6 +165,9 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
         downloadModel,
         cancelDownload,
         isModelDownloaded,
+        showPrompt,
+        dismissPrompt,
+        acceptPrompt,
       }}
     >
       {children}

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import 'react-native-reanimated';
 
+import { ModelDownloadOverlay } from '@/components/model-download-overlay';
 import { DownloadManagerProvider } from '@/contexts/download-manager-context';
 import { TranslationProvider } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -17,6 +18,7 @@ SplashScreen.preventAutoHideAsync();
 function AppContent() {
   return (
     <>
+      <ModelDownloadOverlay />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

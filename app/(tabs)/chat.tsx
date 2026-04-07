@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DownloadPromptModal } from '@/components/download-prompt-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -30,7 +29,6 @@ import {
   saveSession,
   setActiveSessionId,
 } from '@/utils/chat-storage';
-import { File, Paths } from 'expo-file-system';
 
 export default function ChatScreen() {
   const colorScheme = useColorScheme();
@@ -48,8 +46,6 @@ export default function ChatScreen() {
   } = useChatAI();
   
   const [showSidebar, setShowSidebar] = useState(false);
-  const [showDownloadPrompt, setShowDownloadPrompt] = useState(false);
-  const [showWarningBanner, setShowWarningBanner] = useState(false);
   const [inputText, setInputText] = useState('');
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -60,25 +56,12 @@ export default function ChatScreen() {
   // Initialize model when screen is focused, release when unfocused
   useFocusEffect(
     useCallback(() => {
-      // Screen is focused - check if model exists and initialize or show prompt
       if (!hasInitializedRef.current && status === 'idle') {
         console.log('Chat screen focused - checking for model');
         hasInitializedRef.current = true;
-        
-        // Check if model file exists
-        const modelFile = new File(Paths.document, 'llama-3.2-1b-instruct-q8_0.gguf');
-        if (modelFile.exists) {
-          // Model already downloaded, initialize directly
-          console.log('Model exists, initializing directly');
-          initializeModel();
-        } else {
-          // Model not downloaded, show prompt
-          console.log('Model not found, showing download prompt');
-          setShowDownloadPrompt(true);
-        }
+        initializeModel();
       }
 
-      // Cleanup when screen loses focus
       return () => {
         console.log('Chat screen unfocused - releasing model');
         hasInitializedRef.current = false;
@@ -407,32 +390,7 @@ export default function ChatScreen() {
   
   return (
     <View style={styles.container}>
-      <DownloadPromptModal
-        visible={showDownloadPrompt}
-        title="Download Chat AI Model"
-        description="AI Chat requires a ~1.4 GB AI model for offline use. Download it now for the best experience."
-        warning="Without the model, AI Chat features won't work offline."
-        onConfirm={() => {
-          setShowDownloadPrompt(false);
-          setShowWarningBanner(false);
-          initializeModel();
-        }}
-        onCancel={() => {
-          setShowDownloadPrompt(false);
-          setShowWarningBanner(true);
-        }}
-      />
       <SafeAreaView style={{ backgroundColor: colors.background }} edges={['top']}>
-        {showWarningBanner && status === 'idle' && (
-          <TouchableOpacity
-            style={[styles.warningBanner, { backgroundColor: '#ff9800' }]}
-            onPress={() => setShowDownloadPrompt(true)}>
-            <IconSymbol name="exclamationmark.triangle.fill" size={20} color="#fff" />
-            <ThemedText style={styles.warningBannerText}>
-              AI model not downloaded. Tap to download.
-            </ThemedText>
-          </TouchableOpacity>
-        )}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.menuButton}
@@ -801,18 +759,5 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  warningBannerText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
