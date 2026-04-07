@@ -443,19 +443,14 @@ export default function TranslateScreen() {
 
 
 
-  // Bottom Tab Bar Component
-  const BottomTabBar = () => (
-    <View style={[styles.bottomTabBar, { backgroundColor: colors.background, borderTopColor: colors.icon + '30' }]}>
+  // Top Tab Bar Component
+  const TopTabBar = () => (
+    <View style={[styles.topTabBar, { backgroundColor: colors.background, borderBottomColor: colors.icon + '30' }]}>
       <TouchableOpacity
-        style={styles.tabButton}
+        style={styles.topTabButton}
         onPress={() => setMode('translate')}>
-        <IconSymbol 
-          name={getModeIcon('translate')} 
-          size={24} 
-          color={mode === 'translate' ? colors.tint : colors.icon} 
-        />
         <ThemedText style={[
-          styles.tabButtonText,
+          styles.topTabButtonText,
           { color: mode === 'translate' ? colors.tint : colors.icon }
         ]}>
           {getModeTitle('translate')}
@@ -463,15 +458,10 @@ export default function TranslateScreen() {
       </TouchableOpacity>
       
       <TouchableOpacity
-        style={styles.tabButton}
+        style={styles.topTabButton}
         onPress={() => setMode('camera')}>
-        <IconSymbol 
-          name={getModeIcon('camera')} 
-          size={24} 
-          color={mode === 'camera' ? colors.tint : colors.icon} 
-        />
         <ThemedText style={[
-          styles.tabButtonText,
+          styles.topTabButtonText,
           { color: mode === 'camera' ? colors.tint : colors.icon }
         ]}>
           {getModeTitle('camera')}
@@ -479,15 +469,10 @@ export default function TranslateScreen() {
       </TouchableOpacity>
       
       <TouchableOpacity
-        style={styles.tabButton}
+        style={styles.topTabButton}
         onPress={() => setMode('conversation')}>
-        <IconSymbol 
-          name={getModeIcon('conversation')} 
-          size={24} 
-          color={mode === 'conversation' ? colors.tint : colors.icon} 
-        />
         <ThemedText style={[
-          styles.tabButtonText,
+          styles.topTabButtonText,
           { color: mode === 'conversation' ? colors.tint : colors.icon }
         ]}>
           {getModeTitle('conversation')}
@@ -1050,10 +1035,10 @@ export default function TranslateScreen() {
           </ThemedText>
         </TouchableOpacity>
       )}
+      <TopTabBar />
       {mode === 'translate' && renderTextTranslateMode()}
       {mode === 'camera' && renderCameraMode()}
       {mode === 'conversation' && renderConversationMode()}
-      <BottomTabBar />
     </SafeAreaView>
   );
 }
@@ -1091,22 +1076,20 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 4,
   },
-  bottomTabBar: {
+  topTabBar: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    paddingBottom: 20,
-    paddingTop: 8,
+    borderBottomWidth: 1,
+    paddingVertical: 4,
   },
-  tabButton: {
+  topTabButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
-  tabButtonText: {
-    fontSize: 12,
-    marginTop: 4,
-    fontWeight: '500',
+  topTabButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   errorText: {
     fontSize: 14,
