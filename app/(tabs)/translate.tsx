@@ -85,10 +85,10 @@ export default function TranslateScreen() {
     targetLanguage,
     setSourceLanguage,
     setTargetLanguage,
-    myLanguage: lowerLanguage,
-    opponentLanguage: upperLanguage,
-    setMyLanguage: setLowerLanguage,
-    setOpponentLanguage: setUpperLanguage,
+    myLanguage: upperLanguage,
+    opponentLanguage: lowerLanguage,
+    setMyLanguage: setUpperLanguage,
+    setOpponentLanguage: setLowerLanguage,
   } = useTranslationContext();
 
   // Request speech permissions on mount
