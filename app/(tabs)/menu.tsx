@@ -142,13 +142,15 @@ export default function MenuScreen() {
   const bannerVisible = useBannerVisible();
   const isDark = colorScheme === 'dark';
 
-  const { translate, sourceLanguage, targetLanguage } =
+  const { translate, sourceLanguage, targetLanguage, setSourceLanguage, setTargetLanguage } =
     useTranslationContext();
 
-  // Menu scan uses its own direction: menuLang = the menu's language, myLang = user's language.
-  // This is intentionally the REVERSE of the Translate tab (which is "my language → foreign").
-  const [menuLang, setMenuLang] = useState(() => targetLanguage);
-  const [myLang, setMyLang] = useState(() => sourceLanguage);
+  // Menu direction is the REVERSE of Translate tab: menuLang = foreign menu, myLang = user's language.
+  // Shares the same storage — changing here updates the Translate tab too (swapped).
+  const menuLang = targetLanguage;
+  const myLang = sourceLanguage;
+  const setMenuLang = setTargetLanguage;
+  const setMyLang = setSourceLanguage;
   const [showMenuLangPicker, setShowMenuLangPicker] = useState(false);
   const [showMyLangPicker, setShowMyLangPicker] = useState(false);
 
