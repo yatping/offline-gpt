@@ -66,21 +66,14 @@ export default function MenuScreen() {
   const { translate, sourceLanguage, targetLanguage, setSourceLanguage, setTargetLanguage } =
     useTranslationContext();
 
-  // Menu direction is the REVERSE of Translate tab: menuLang = foreign menu, myLang = user's language.
-  // Shares the same storage — changing here updates the Translate tab too (swapped).
-  const menuLang = targetLanguage;
-  const myLang = sourceLanguage;
-  const setMenuLang = setTargetLanguage;
-  const setMyLang = setSourceLanguage;
-  const [showMenuLangPicker, setShowMenuLangPicker] = useState(false);
-  const [showMyLangPicker, setShowMyLangPicker] = useState(false);
-
   const { isModelDownloaded, downloadModel } = useDownloadManager();
   const { generateResponseWithImage, isReady: aiReady, initializeModel } = useChatAIContext();
 
   const [step, setStep] = useState<MenuStep>('capture');
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [processingMsg, setProcessingMsg] = useState(PROCESSING_STEPS[0]);
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
+  const [showTargetPicker, setShowTargetPicker] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showNewBadge, setShowNewBadge] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -221,7 +214,7 @@ export default function MenuScreen() {
 
         // Step 3: Translate item names for display
         setProcessingMsg(PROCESSING_STEPS[2]);
-        const sameLanguage = menuLang.code === myLang.code;
+        const sameLanguage = sourceLanguage.code === targetLanguage.code;
 
         const menuResult: MenuCategory[] = [];
         let itemIndex = 0;
@@ -234,7 +227,7 @@ export default function MenuScreen() {
 
             if (!sameLanguage) {
               try {
-                translatedName = await translate(originalName, menuLang.code, myLang.code);
+                translatedName = await translate(originalName, sourceLanguage.code, targetLanguage.code);
               } catch {
                 translatedName = originalName;
               }
@@ -264,7 +257,7 @@ export default function MenuScreen() {
     },
     [
       isModelDownloaded, downloadModel, translate,
-      menuLang.code, myLang.code,
+      sourceLanguage.code, targetLanguage.code,
       showNewBadge, dismissNewBadge,
       aiReady, initializeModel, generateResponseWithImage,
     ]
@@ -328,8 +321,8 @@ export default function MenuScreen() {
             <ThemedText style={[styles.langDirectionLabel, { color: colors.icon }]}>Menu language</ThemedText>
             <TouchableOpacity
               style={[styles.langChip, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]}
-              onPress={() => setShowMenuLangPicker(true)}>
-              <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{menuLang.name}</ThemedText>
+              onPress={() => setShowSourcePicker(true)}>
+              <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{sourceLanguage.name}</ThemedText>
               <IconSymbol name="chevron.down" size={14} color={colors.tint} />
             </TouchableOpacity>
           </View>
@@ -340,8 +333,8 @@ export default function MenuScreen() {
             <ThemedText style={[styles.langDirectionLabel, { color: colors.icon }]}>My language</ThemedText>
             <TouchableOpacity
               style={[styles.langChip, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]}
-              onPress={() => setShowMyLangPicker(true)}>
-              <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{myLang.name}</ThemedText>
+              onPress={() => setShowTargetPicker(true)}>
+              <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{targetLanguage.name}</ThemedText>
               <IconSymbol name="chevron.down" size={14} color={colors.tint} />
             </TouchableOpacity>
           </View>
@@ -368,20 +361,20 @@ export default function MenuScreen() {
       </TouchableOpacity>
 
       <LanguagePicker
-        visible={showMenuLangPicker}
-        selectedLanguage={menuLang}
+        visible={showSourcePicker}
+        selectedLanguage={sourceLanguage}
         languages={LANGUAGES}
-        onSelect={setMenuLang}
-        onClose={() => setShowMenuLangPicker(false)}
-        onShowPaywall={() => { setShowMenuLangPicker(false); setShowPaywall(true); }}
+        onSelect={setSourceLanguage}
+        onClose={() => setShowSourcePicker(false)}
+        onShowPaywall={() => { setShowSourcePicker(false); setShowPaywall(true); }}
       />
       <LanguagePicker
-        visible={showMyLangPicker}
-        selectedLanguage={myLang}
+        visible={showTargetPicker}
+        selectedLanguage={targetLanguage}
         languages={LANGUAGES}
-        onSelect={setMyLang}
-        onClose={() => setShowMyLangPicker(false)}
-        onShowPaywall={() => { setShowMyLangPicker(false); setShowPaywall(true); }}
+        onSelect={setTargetLanguage}
+        onClose={() => setShowTargetPicker(false)}
+        onShowPaywall={() => { setShowTargetPicker(false); setShowPaywall(true); }}
       />
       <PremiumLanguagesPaywall
         visible={showPaywall}
@@ -415,10 +408,10 @@ export default function MenuScreen() {
           <IconSymbol name="chevron.left" size={22} color={colors.tint} />
         </TouchableOpacity>
         <ThemedText type="subtitle" style={styles.menuHeaderTitle}>
-          {myLang.name} Menu
+          {targetLanguage.name} Menu
         </ThemedText>
         <ThemedText style={[styles.menuHeaderSub, { color: colors.icon }]}>
-          {allItems.length} items · {menuLang.name} → {myLang.name}
+          {allItems.length} items · {sourceLanguage.name} → {targetLanguage.name}
         </ThemedText>
       </View>
 
@@ -468,8 +461,8 @@ export default function MenuScreen() {
       <OrderModal
         visible={showOrderModal}
         items={selectedItems}
-        sourceLanguage={menuLang.name}
-        targetLanguage={myLang.name}
+        sourceLanguage={sourceLanguage.name}
+        targetLanguage={targetLanguage.name}
         colors={colors}
         isDark={isDark}
         onClose={() => setShowOrderModal(false)}
