@@ -434,10 +434,10 @@ export default function MenuScreen() {
             onPress={() => setShowOrderModal(true)}
             activeOpacity={0.85}>
             <View style={styles.orderBadge}>
-              <ThemedText style={styles.orderBadgeText}>{totalItems}</ThemedText>
+              <ThemedText style={[styles.orderBadgeText, { color: isDark ? '#000' : '#fff' }]}>{totalItems}</ThemedText>
             </View>
-            <ThemedText style={styles.orderButtonText}>View My Order</ThemedText>
-            <IconSymbol name="chevron.right" size={18} color="#fff" />
+            <ThemedText style={[styles.orderButtonText, { color: isDark ? '#000' : '#fff' }]}>View My Order</ThemedText>
+            <IconSymbol name="chevron.right" size={18} color={isDark ? '#000' : '#fff'} />
           </TouchableOpacity>
         </View>
       )}
@@ -485,6 +485,7 @@ function MenuItemCard({
   onDecrement: () => void;
 }) {
   const isSelected = item.quantity > 0;
+  const onTint = isDark ? '#000' : '#fff';
   return (
     <Pressable
       onPress={onIncrement}
@@ -515,13 +516,13 @@ function MenuItemCard({
             <TouchableOpacity
               onPress={onDecrement}
               style={[styles.qtyBtn, { backgroundColor: colors.tint }]}>
-              <ThemedText style={styles.qtyBtnText}>−</ThemedText>
+              <ThemedText style={[styles.qtyBtnText, { color: onTint }]}>−</ThemedText>
             </TouchableOpacity>
             <ThemedText style={[styles.qtyValue, { color: colors.text }]}>{item.quantity}</ThemedText>
             <TouchableOpacity
               onPress={onIncrement}
               style={[styles.qtyBtn, { backgroundColor: colors.tint }]}>
-              <ThemedText style={styles.qtyBtnText}>+</ThemedText>
+              <ThemedText style={[styles.qtyBtnText, { color: onTint }]}>+</ThemedText>
             </TouchableOpacity>
           </View>
         ) : (
@@ -554,6 +555,7 @@ function OrderModal({
   onReset: () => void;
 }) {
   const sameLanguage = sourceLanguage === targetLanguage;
+  const onTint = isDark ? '#000' : '#fff';
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -605,7 +607,7 @@ function OrderModal({
                   )}
                 </View>
                 <View style={[styles.orderQtyBadge, { backgroundColor: colors.tint }]}>
-                  <ThemedText style={styles.orderQtyText}>×{item.quantity}</ThemedText>
+                  <ThemedText style={[styles.orderQtyText, { color: onTint }]}>×{item.quantity}</ThemedText>
                 </View>
               </View>
             ))}
@@ -616,8 +618,8 @@ function OrderModal({
             style={[styles.primaryButton, { backgroundColor: colors.tint, marginTop: 24 }]}
             onPress={onReset}
             activeOpacity={0.85}>
-            <IconSymbol name="camera.fill" size={20} color="#fff" />
-            <ThemedText style={styles.primaryButtonText}>Scan New Menu</ThemedText>
+            <IconSymbol name="camera.fill" size={20} color={onTint} />
+            <ThemedText style={[styles.primaryButtonText, { color: onTint }]}>Scan New Menu</ThemedText>
           </TouchableOpacity>
 
           <TouchableOpacity

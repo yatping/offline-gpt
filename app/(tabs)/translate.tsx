@@ -44,6 +44,8 @@ type Message = {
 export default function TranslateScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === 'dark';
+  const onTint = isDark ? '#000' : '#fff';
   const bannerVisible = useBannerVisible();
   const [mode, setMode] = useState<TranslateMode>('translate');
 
@@ -479,7 +481,7 @@ export default function TranslateScreen() {
           <TouchableOpacity
             style={[styles.swapButton, { backgroundColor: colors.tint }]}
             onPress={swapLanguages}>
-            <IconSymbol name="arrow.up.arrow.down" size={20} color="#fff" />
+            <IconSymbol name="arrow.up.arrow.down" size={20} color={onTint} />
           </TouchableOpacity>
         </View>
 
@@ -580,7 +582,7 @@ export default function TranslateScreen() {
             style={[styles.button, { backgroundColor: colors.tint }]}
             onPress={requestCameraPermission}
           >
-            <ThemedText style={styles.buttonText}>Grant Permission</ThemedText>
+            <ThemedText style={[styles.buttonText, { color: onTint }]}>Grant Permission</ThemedText>
           </TouchableOpacity>
         </ThemedView>
       );
@@ -603,8 +605,8 @@ export default function TranslateScreen() {
               style={[styles.button, { backgroundColor: colors.tint }]}
               onPress={() => setPickerResult(null)}
             >
-              <IconSymbol size={24} name="camera.fill" color="#fff" />
-              <ThemedText style={styles.buttonText}>Back to Camera</ThemedText>
+              <IconSymbol size={24} name="camera.fill" color={onTint} />
+              <ThemedText style={[styles.buttonText, { color: onTint }]}>Back to Camera</ThemedText>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -628,8 +630,8 @@ export default function TranslateScreen() {
               style={[styles.button, { backgroundColor: colors.tint }]}
               onPress={() => setCameraResult(null)}
             >
-              <IconSymbol size={24} name="camera.fill" color="#fff" />
-              <ThemedText style={styles.buttonText}>Take Another Photo</ThemedText>
+              <IconSymbol size={24} name="camera.fill" color={onTint} />
+              <ThemedText style={[styles.buttonText, { color: onTint }]}>Take Another Photo</ThemedText>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -684,9 +686,9 @@ export default function TranslateScreen() {
             onPress={captureAndTranslate}
             disabled={isCameraCapturing}>
             {isCameraCapturing ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={onTint} />
             ) : (
-              <IconSymbol name="camera.fill" size={28} color="#fff" />
+              <IconSymbol name="camera.fill" size={28} color={onTint} />
             )}
           </TouchableOpacity>
         </View>
@@ -771,7 +773,7 @@ export default function TranslateScreen() {
             <IconSymbol
               name={isRecording ? 'stop.circle.fill' : 'mic.circle.fill'}
               size={32}
-              color="#fff"
+              color={isRecording ? '#fff' : onTint}
             />
           </TouchableOpacity>
         </View>

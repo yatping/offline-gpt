@@ -34,6 +34,8 @@ import {
 export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === 'dark';
+  const onTint = isDark ? '#000' : '#fff';
   const bannerVisible = useBannerVisible();
   const { isModelDownloaded, openDownloadPrompt } = useDownloadManager();
   
@@ -451,9 +453,9 @@ export default function ChatScreen() {
                 onPress={handleSend}
                 disabled={!inputText.trim() || isGenerating}>
                 {isGenerating ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={onTint} />
                 ) : (
-                  <IconSymbol name="arrow.up" size={20} color="#fff" />
+                  <IconSymbol name="arrow.up" size={20} color={onTint} />
                 )}
               </TouchableOpacity>
             </View>
