@@ -19,6 +19,7 @@ type DownloadManagerContextType = {
   showPrompt: boolean;
   dismissPrompt: () => void;
   acceptPrompt: () => void;
+  openDownloadPrompt: () => void;
 };
 
 const MODEL_CONFIGS = {
@@ -232,6 +233,8 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
     downloadModel('chat');
   };
 
+  const openDownloadPrompt = () => setShowPrompt(true);
+
   return (
     <DownloadManagerContext.Provider
       value={{
@@ -243,6 +246,7 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
         showPrompt,
         dismissPrompt,
         acceptPrompt,
+        openDownloadPrompt,
       }}
     >
       {children}
@@ -258,10 +262,8 @@ export function useDownloadManager() {
   return context;
 }
 
-/** Returns true when the global download banner is visible (model missing or downloading). */
+/** Returns true when the slim progress banner is visible (downloading in background, full page dismissed). */
 export function useBannerVisible(): boolean {
   const { chatModel, showPrompt } = useDownloadManager();
-  const isDownloading = chatModel.status === 'downloading';
-  const isNotDownloaded = chatModel.status === 'idle' || chatModel.status === 'error';
-  return isDownloading || (isNotDownloaded && !showPrompt);
+  return chatModel.status === 'downloading' && !showPrompt;
 }

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,8 +17,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
-import { useBannerVisible } from '@/contexts/download-manager-context';
 import { ChatMessage, useChatAIContext } from '@/contexts/chat-ai-context';
+import { useBannerVisible, useDownloadManager } from '@/contexts/download-manager-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   ChatSession,
@@ -34,6 +35,7 @@ export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const bannerVisible = useBannerVisible();
+  const { isModelDownloaded, openDownloadPrompt } = useDownloadManager();
   
   const {
     status,
@@ -115,7 +117,21 @@ export default function ChatScreen() {
   }, [currentSessionId]);
 
   const handleSend = async () => {
-    if (!inputText.trim() || !currentSession || !isReady) return;
+    if (!inputText.trim() || !currentSession || isGenerating) return;
+
+    if (!isModelDownloaded('chat')) {
+      Alert.alert(
+        'AI Model Required',
+        'Download the AI model to start chatting. You only need to do this once.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Download', onPress: openDownloadPrompt },
+        ]
+      );
+      return;
+    }
+
+    if (!isReady) return;
 
     const userMessage: ChatMessage = {
       role: 'user',
@@ -430,10 +446,10 @@ export default function ChatScreen() {
               <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  { backgroundColor: inputText.trim() && isReady && !isGenerating ? colors.tint : colors.icon + '40' },
+                  { backgroundColor: inputText.trim() && !isGenerating ? colors.tint : colors.icon + '40' },
                 ]}
                 onPress={handleSend}
-                disabled={!inputText.trim() || !isReady || isGenerating}>
+                disabled={!inputText.trim() || isGenerating}>
                 {isGenerating ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (

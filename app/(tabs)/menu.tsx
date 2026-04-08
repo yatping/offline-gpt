@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LanguagePicker } from '@/components/language-picker';
 import { PremiumLanguagesPaywall } from '@/components/premium-languages-paywall';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useChatAIContext } from '@/contexts/chat-ai-context';
@@ -295,67 +294,53 @@ export default function MenuScreen() {
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={styles.captureContainer}
       keyboardShouldPersistTaps="handled">
-      {/* Hero */}
-      <View style={[styles.heroBadge, { backgroundColor: colors.tint + '18' }]}>
-        <ThemedText style={[styles.heroBadgeText, { color: colors.tint }]}>
-          ✨ AI-Powered Menu Translation
-        </ThemedText>
-      </View>
 
-      <View style={[styles.heroIconWrap, { backgroundColor: colors.tint + '18' }]}>
-        <IconSymbol name="fork.knife" size={64} color={colors.tint} />
+      {/* Icon */}
+      <View style={[styles.heroIconWrap, { backgroundColor: isDark ? '#242424' : '#f0f0f0' }]}>
+        <IconSymbol name="fork.knife" size={36} color={colors.tint} />
       </View>
 
       <ThemedText type="title" style={styles.heroTitle}>
         Menu Scanner
       </ThemedText>
       <ThemedText style={[styles.heroSubtitle, { color: colors.icon }]}>
-        Point your camera at any menu and instantly see it translated. Tap items to build your order,
-        then show the original-language card to your server.
+        Point your camera at any menu for instant translation.
       </ThemedText>
 
       {/* Language selector */}
-      <ThemedView style={[styles.langCard, { borderColor: colors.icon + '30', backgroundColor: isDark ? '#1f2022' : '#fff' }]}>
-        <View style={styles.langRow}>
-          <View style={styles.langLabelCol}>
-            <ThemedText style={[styles.langDirectionLabel, { color: colors.icon }]}>Menu language</ThemedText>
-            <TouchableOpacity
-              style={[styles.langChip, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]}
-              onPress={() => setShowSourcePicker(true)}>
-              <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{sourceLanguage.name}</ThemedText>
-              <IconSymbol name="chevron.down" size={14} color={colors.tint} />
-            </TouchableOpacity>
-          </View>
+      <View style={styles.langRow}>
+        <TouchableOpacity
+          style={[styles.langChip, { borderColor: isDark ? '#2e2e2e' : '#e0e0e0', backgroundColor: isDark ? '#242424' : '#fff' }]}
+          onPress={() => setShowSourcePicker(true)}>
+          <ThemedText style={[styles.langChipText, { color: colors.text }]}>{sourceLanguage.name}</ThemedText>
+          <IconSymbol name="chevron.down" size={12} color={colors.icon} />
+        </TouchableOpacity>
 
-          <IconSymbol name="arrow.right" size={18} color={colors.icon} style={{ marginTop: 18 }} />
+        <IconSymbol name="arrow.right" size={16} color={colors.icon} />
 
-          <View style={styles.langLabelCol}>
-            <ThemedText style={[styles.langDirectionLabel, { color: colors.icon }]}>My language</ThemedText>
-            <TouchableOpacity
-              style={[styles.langChip, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]}
-              onPress={() => setShowTargetPicker(true)}>
-              <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{targetLanguage.name}</ThemedText>
-              <IconSymbol name="chevron.down" size={14} color={colors.tint} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ThemedView>
+        <TouchableOpacity
+          style={[styles.langChip, { borderColor: isDark ? '#2e2e2e' : '#e0e0e0', backgroundColor: isDark ? '#242424' : '#fff' }]}
+          onPress={() => setShowTargetPicker(true)}>
+          <ThemedText style={[styles.langChipText, { color: colors.text }]}>{targetLanguage.name}</ThemedText>
+          <IconSymbol name="chevron.down" size={12} color={colors.icon} />
+        </TouchableOpacity>
+      </View>
 
       {/* Scan CTA */}
       <TouchableOpacity
         style={[styles.primaryButton, { backgroundColor: colors.tint }]}
         onPress={() => scanMenu('camera')}
         activeOpacity={0.85}>
-        <IconSymbol name="camera.fill" size={24} color="#fff" />
-        <ThemedText style={styles.primaryButtonText}>Scan Menu</ThemedText>
+        <IconSymbol name="camera.fill" size={20} color={isDark ? '#000' : '#fff'} />
+        <ThemedText style={[styles.primaryButtonText, { color: isDark ? '#000' : '#fff' }]}>Scan Menu</ThemedText>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.secondaryButton, { borderColor: colors.tint }]}
+        style={[styles.secondaryButton, { borderColor: isDark ? '#2e2e2e' : '#e0e0e0', backgroundColor: isDark ? '#242424' : '#fff' }]}
         onPress={() => scanMenu('gallery')}
         activeOpacity={0.85}>
-        <IconSymbol name="photo.on.rectangle" size={20} color={colors.tint} />
-        <ThemedText style={[styles.secondaryButtonText, { color: colors.tint }]}>
+        <IconSymbol name="photo.on.rectangle" size={18} color={colors.icon} />
+        <ThemedText style={[styles.secondaryButtonText, { color: colors.icon }]}>
           Choose from Gallery
         </ThemedText>
       </TouchableOpacity>
@@ -656,138 +641,54 @@ const styles = StyleSheet.create({
 
   // Capture
   captureContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 24,
+    paddingTop: 40,
     paddingBottom: 40,
     alignItems: 'center',
-  },
-  heroBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 24,
-  },
-  heroBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: '100%',
   },
   heroIconWrap: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 72,
+    height: 72,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   heroTitle: {
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   heroSubtitle: {
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 28,
-    paddingHorizontal: 8,
-  },
-  langCard: {
-    width: '100%',
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 20,
+    marginBottom: 32,
+    paddingHorizontal: 16,
   },
   langRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 10,
-  },
-  langLabelCol: {
-    flex: 1,
-    gap: 6,
-  },
-  langDirectionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    marginBottom: 24,
+    width: '100%',
   },
   langChip: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
     paddingHorizontal: 14,
   },
   langChipText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  // Model download styles
-  modelReadyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    marginBottom: 20,
-  },
-  modelReadyText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  modelDownloadCard: {
-    width: '100%',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: 16,
-    marginBottom: 20,
-    gap: 12,
-  },
-  modelDownloadHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  modelDownloadTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  modelDownloadSub: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 6,
-    borderRadius: 3,
-  },
-  cancelDownloadBtn: {
-    alignSelf: 'flex-end',
-  },
-  cancelDownloadText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  downloadBtn: {
-    borderRadius: 10,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  downloadBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
   },
   // Category styles
   categoryHeader: {
@@ -813,19 +714,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    borderRadius: 14,
+    borderRadius: 50,
     paddingVertical: 16,
     paddingHorizontal: 24,
     marginBottom: 12,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
-      android: { elevation: 4 },
-    }),
   },
   primaryButtonText: {
-    color: '#fff',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   secondaryButton: {
     width: '100%',
@@ -833,40 +729,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    paddingVertical: 14,
+    borderRadius: 50,
+    borderWidth: 1,
+    paddingVertical: 15,
     paddingHorizontal: 24,
     marginBottom: 28,
   },
   secondaryButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-  },
-  howCard: {
-    width: '100%',
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    gap: 12,
-  },
-  howTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  howRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  howIcon: {
-    width: 20,
-  },
-  howText: {
-    fontSize: 14,
-    flex: 1,
-    lineHeight: 20,
+    fontWeight: '500',
   },
 
   // Processing

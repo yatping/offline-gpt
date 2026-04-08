@@ -2,12 +2,12 @@
 
 ## Project Overview
 
-OfflineGPT is a React Native/Expo mobile app that provides **fully offline AI translation and chat** using on-device LLM models. The app uses [llama.rn](https://github.com/mybigday/llama.rn) to run quantized GGUF models directly on iOS/Android devices.
+OfflineGPT is a React Native/Expo mobile app that provides **fully offline AI translation and chat** using on-device models. Translation uses ML Kit via `fast-mlkit-translate-text`; chat uses [llama.rn](https://github.com/mybigday/llama.rn) to run a quantized GGUF vision-language model directly on iOS/Android.
 
 **Key capabilities:**
 - Text, image (OCR), and voice translation between 35+ languages
 - Real-time bidirectional conversation translation
-- Offline chat AI
+- Offline chat AI with vision support (image understanding)
 - In-app purchases for premium language packs
 
 ## Build, Test & Lint Commands
@@ -40,7 +40,10 @@ The app uses [Expo Router](https://docs.expo.dev/router/introduction/) with file
 
 - `app/_layout.tsx` - Root layout with context providers
 - `app/index.tsx` - Entry point (redirects to translate screen)
-- `app/(tabs)/translate.tsx` - Main screen with 3 modes: text translation, camera OCR, and conversation
+- `app/(tabs)/_layout.tsx` - Tab bar with 3 tabs: Menu, Translate, Chat
+- `app/(tabs)/menu.tsx` - Menu/settings screen
+- `app/(tabs)/translate.tsx` - Translation screen with text, camera OCR, and conversation modes
+- `app/(tabs)/chat.tsx` - Chat AI screen with session management
 - `app/modal.tsx` - Example modal screen
 
 **Typed routes enabled** via `experiments.typedRoutes: true` in app.json.
@@ -50,48 +53,63 @@ The app uses [Expo Router](https://docs.expo.dev/router/introduction/) with file
 The app uses React Context for global state management:
 
 1. **DownloadManagerContext** (`contexts/download-manager-context.tsx`)
-   - Manages downloading of AI models (translation + chat) from CDN
-   - Tracks download progress and cancellation
-   - Models stored in `FileSystem.documentDirectory`
+   - Manages downloading of the chat AI model (two files: model + mmproj) from HuggingFace
+   - Tracks download progress and cancellation; shows a download prompt on first launch
+   - Models stored in `Paths.document` (expo-file-system)
+   - `ModelType = 'chat'` (only one type; translation uses ML Kit, no download required)
 
-2. **TranslationContext** (`contexts/translation-context.tsx`)
-   - Wraps `useTranslation` hook and provides global access
+2. **ChatAIContext** (`contexts/chat-ai-context.tsx`)
+   - Provides global access to the LFM2.5-VL vision-language model
+   - Exposes `initializeModel`, `generateResponse`, `generateResponseWithImage`
+   - Status lifecycle: `idle → loading → ready → generating`
+   - Auto-initializes when `chatModel.status === 'completed'`
+
+3. **TranslationContext** (`contexts/translation-context.tsx`)
+   - Wraps `useTranslation` hook (ML Kit based) and provides global access
    - Manages 4 language preferences: source/target (text mode) and my/opponent (conversation mode)
    - Persists language selections to AsyncStorage
-   - Handles translation model initialization and lifecycle
+   - Keeps source↔my and target↔opponent languages in sync bidirectionally
 
 **Context provider hierarchy** (defined in `app/_layout.tsx`):
 ```
 ThemeProvider
 └─ DownloadManagerProvider
-   └─ TranslationProvider
-      └─ App content
+   └─ ChatAIProvider
+      └─ TranslationProvider
+         └─ App content
 ```
 
 ### AI Model System
 
-The app uses two separate on-device LLM models:
+The app uses two separate on-device AI systems:
 
-1. **Translation Model:** `translategemma-4b-it.Q4_K_S.gguf` (~2.6GB)
+1. **Translation:** ML Kit via `fast-mlkit-translate-text`
    - Hook: `hooks/use-translation.ts`
-   - Model: Google's TranslateGemma-4B (quantized)
-   - Prompt format: `<s> Translate this into {targetLang}: {sourceText} {targetLang}: `
-   - Features: Text translation, OCR translation
+   - No GGUF model file; language models download automatically per language pair
+   - API: `FastTranslator.prepare({ source, target, downloadIfNeeded })` then `FastTranslator.translate(text)`
+   - Caches the last prepared language pair to avoid redundant `prepare()` calls
+   - No manual initialization or model lifecycle management required
 
-2. **Chat Model:** `llama-3.2-1b-instruct-q8_0.gguf` (~1.3GB)
-   - Hook: `hooks/use-chat-ai.ts`
-   - Model: Llama 3.2 1B Instruct (8-bit quantized)
-   - Prompt format: Llama 3 Instruct template
-   - Features: General chat AI functionality
+2. **Chat AI Model:** `LFM2.5-VL-1.6B-Q8_0.gguf` + `mmproj-LFM2.5-VL-1.6b-Q8_0.gguf`
+   - Hook: `hooks/use-chat-ai.ts` (local use) / Context: `contexts/chat-ai-context.tsx` (global)
+   - Model: LiquidAI LFM2.5-VL 1.6B (vision-language, 8-bit quantized)
+   - Downloaded from HuggingFace: `https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF`
+   - Requires **two files**: main model (~1.6GB) + mmproj (~0.3GB); progress split 0–80% / 80–100%
+   - Prompt format: LFM2.5 ChatML
+     ```typescript
+     `<|startoftext|><|im_start|>system\n${systemMessage}<|im_end|>\n<|im_start|>user\n${userMessage}<|im_end|>\n<|im_start|>assistant\n`
+     ```
+   - Stop tokens: `['<|im_end|>', '<|endoftext|>']`
+   - Vision: `llamaCtx.initMultimodal({ path: mmprojFile.uri, use_gpu: Platform.OS === 'ios' })` then pass `image_url` in messages
+   - Features: General chat AI + image understanding (OCR, visual Q&A)
 
-**Model initialization pattern:**
-- Models are lazily loaded when first needed
-- Downloaded from CDN if not present (`MODEL_CONFIGS` in download-manager-context)
-- Loaded via `initLlama()` from llama.rn with platform-specific configs:
+**Model initialization pattern (chat AI):**
+- Uses `initPromiseRef` to deduplicate concurrent init calls (all callers wait on the same promise)
+- Validates file size (>1MB) before loading; deletes corrupted file and calls `resetDownload` if invalid
+- Loaded via `initLlama()` with platform-specific GPU config:
   - iOS: `n_gpu_layers: 99` (Metal acceleration)
   - Android: `n_gpu_layers: 0` (CPU only)
-- Both hooks use `contextRef` to maintain single model instance
-- Use `isInitializingRef` to prevent concurrent initialization
+- Always call `context.release()` on cleanup to free memory
 
 ### In-App Purchase System
 
@@ -132,6 +150,15 @@ if (!hasAccess) {
 - Workflow: Capture photo → Extract text → Translate
 - Permissions required: `NSCameraUsageDescription`
 
+### Chat Session Storage
+
+Chat conversations are persisted via `utils/chat-storage.ts`:
+- Storage key prefix: `@chat/` — e.g., `@chat/sessions`, `@chat/active_session_id`
+- `ChatSession` type: `{ id, title, messages, createdAt, updatedAt }`
+- Session title auto-generated from first user message (first 50 chars)
+- Sessions sorted by `updatedAt` descending (most recent first)
+- Key functions: `saveSession`, `loadSessions`, `deleteSession`, `getSession`, `setActiveSessionId`, `getActiveSessionId`, `clearAllSessions`
+
 ## Code Conventions
 
 ### Import Aliases
@@ -163,26 +190,29 @@ export type Language = typeof LANGUAGES[number];
 - Use `@translation/` prefix: `@translation/source_language`, `@translation/target_language`
 - Stored as JSON strings via AsyncStorage
 
-### Model Lifecycle Pattern
+### Chat AI Model Lifecycle Pattern
 
-Both translation and chat AI hooks follow this pattern:
+The chat AI hook uses `initPromiseRef` to deduplicate concurrent init calls:
 ```typescript
 const contextRef = useRef<LlamaContext | null>(null);
-const isInitializingRef = useRef(false);
+const initPromiseRef = useRef<Promise<void> | null>(null);
 
 const initializeModel = useCallback(async () => {
   if (contextRef.current) return; // Already initialized
-  if (isInitializingRef.current) return; // Already initializing
-  
-  try {
-    isInitializingRef.current = true;
-    // Download model if needed
-    // Initialize with initLlama()
-    contextRef.current = context;
-  } finally {
-    isInitializingRef.current = false;
-  }
-}, [dependencies]);
+  if (initPromiseRef.current) return initPromiseRef.current; // In-flight: all callers share same promise
+
+  const doInit = async () => {
+    try {
+      // Validate file size, then call initLlama() + initMultimodal()
+      contextRef.current = llamaCtx;
+    } finally {
+      initPromiseRef.current = null;
+    }
+  };
+
+  initPromiseRef.current = doInit();
+  return initPromiseRef.current;
+}, []);
 ```
 
 **Important:** Always call `context.release()` on cleanup to free memory.
@@ -202,16 +232,20 @@ import { ThemedView } from '@/components/themed-view';
 
 Theme colors defined in `constants/theme.ts` (inferred from usage).
 
-### Translation Prompt Format
+### Chat AI Prompt Format
 
-**Critical:** TranslateGemma requires specific prompt structure:
+**LFM2.5 ChatML format** (used by both `useChatAI` hook and `ChatAIContext`):
 ```typescript
-const prompt = `<s> Translate this into ${targetLang}: ${sourceText} ${targetLang}: `;
+let prompt = `<|startoftext|><|im_start|>system\n${systemMessage}<|im_end|>\n`;
+// for each message:
+prompt += `<|im_start|>user\n${content}<|im_end|>\n`;
+prompt += `<|im_start|>assistant\n${content}<|im_end|>\n`;
+// final turn:
+prompt += '<|im_start|>assistant\n';
 ```
+Stop tokens: `['<|im_end|>', '<|endoftext|>']`
 
-- Must start with `<s>` token
-- Include target language name twice
-- Space after final colon is important
+For vision requests, pass messages directly with `image_url` content type — do not use the manual prompt string.
 
 ### Platform-Specific Configuration
 
@@ -253,12 +287,12 @@ The `llama.rn` plugin requires specific setup in `app.json`:
 
 ## Development Workflow
 
-### Adding a New AI Model
+### Adding a New AI Chat Model
 
-1. Upload GGUF model to CDN: `https://offlinegpt-assets.orangolabs.com/`
-2. Add config to `MODEL_CONFIGS` in `contexts/download-manager-context.tsx`
-3. Create hook in `hooks/` following `use-translation.ts` pattern
-4. Add context if global access needed
+1. Upload GGUF + mmproj files to HuggingFace (or another host)
+2. Update `MODEL_CONFIGS` in `contexts/download-manager-context.tsx` with new URLs and filenames
+3. Update `MODEL_FILENAME` / `MMPROJ_FILENAME` constants in `contexts/chat-ai-context.tsx` and `hooks/use-chat-ai.ts`
+4. Update prompt format in `generateResponse` if the new model uses a different chat template
 5. Test download + initialization on both iOS and Android
 
 ### Adding a New Language
@@ -280,17 +314,18 @@ See `IAP_SETUP_GUIDE.md` for complete setup instructions.
 
 ## Important Notes
 
-- **OTA Updates:** Configured via Expo Updates (`expo-updates`) with runtime version `1.0.0`
+- **OTA Updates:** `hooks/use-ota-updates.ts` auto-checks on mount and app foreground; `utils/ota-updates.ts` provides `manualUpdateCheck()` for settings screens
 - **New Architecture:** Enabled via `newArchEnabled: true` - uses React Native's new architecture
 - **React Compiler:** Experimental React Compiler enabled via `experiments.reactCompiler: true`
 - **Patch Package:** Uses `patch-package` for npm dependency patches (runs via `postinstall` script)
 - **EAS Build:** Project ID `d36df05f-69d4-43e8-b80e-eac52832ffc6` configured in app.json
-- **File Storage:** All model files stored in `Paths.document` (FileSystem.documentDirectory)
+- **File Storage:** All model files stored in `Paths.document` (expo-file-system)
 
 ## Performance Considerations
 
-- Translation model is ~2.6GB - first-time download takes several minutes
+- Chat model (~1.6GB model + ~0.3GB mmproj) — first-time download takes several minutes
 - Model initialization can take 10-30 seconds on older devices
 - Metal acceleration (iOS) significantly improves inference speed
 - Android performance varies widely by device (CPU-only inference)
 - Use `use_mlock: true` to prevent model paging on iOS
+- Translation via ML Kit is fast and requires no warm-up; language model files download on first use per language pair

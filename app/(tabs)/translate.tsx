@@ -65,7 +65,7 @@ export default function TranslateScreen() {
   const [showCameraSourcePicker, setShowCameraSourcePicker] = useState(false);
 
   const { generateResponseWithImage, isReady: aiReady, initializeModel } = useChatAIContext();
-  const { isModelDownloaded } = useDownloadManager();
+  const { isModelDownloaded, openDownloadPrompt } = useDownloadManager();
 
   // Conversation State
   const [allMessages, setAllMessages] = useState<Message[]>([]);
@@ -189,8 +189,11 @@ export default function TranslateScreen() {
     if (!isModelDownloaded('chat')) {
       Alert.alert(
         'AI Model Required',
-        'Download the AI model to use camera translation.',
-        [{ text: 'OK' }]
+        'Download the AI model to use camera translation. You only need to do this once.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Download', onPress: openDownloadPrompt },
+        ]
       );
       return;
     }
@@ -229,8 +232,11 @@ export default function TranslateScreen() {
     if (!isModelDownloaded('chat')) {
       Alert.alert(
         'AI Model Required',
-        'Download the AI model to use image translation.',
-        [{ text: 'OK' }]
+        'Download the AI model to use image translation. You only need to do this once.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Download', onPress: openDownloadPrompt },
+        ]
       );
       return;
     }
