@@ -1,4 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ExpoSpeechRecognitionModule,
@@ -16,8 +17,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Camera as MLKitCamera, PhotoRecognizer } from 'react-native-vision-camera-ocr-plus';
-import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LanguagePicker } from '@/components/language-picker';
@@ -26,7 +25,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
-import { useBannerVisible } from '@/contexts/download-manager-context';
+import { useChatAIContext } from '@/contexts/chat-ai-context';
+import { useBannerVisible, useDownloadManager } from '@/contexts/download-manager-context';
 import { useTranslationContext } from '@/contexts/translation-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { LANGUAGES } from '@/utils/language-preferences';
@@ -55,14 +55,17 @@ export default function TranslateScreen() {
   const [showPaywall, setShowPaywall] = useState(false);
 
   // Camera State
-  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
-  const cameraDevice = useCameraDevice('back');
-  const [liveTranslation, setLiveTranslation] = useState('');
-  const clearTranslationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
+  const [isCameraCapturing, setIsCameraCapturing] = useState(false);
+  const [cameraResult, setCameraResult] = useState<{ original: string; translated: string } | null>(null);
   const [isPickerTranslating, setIsPickerTranslating] = useState(false);
   const [pickerResult, setPickerResult] = useState<{ original: string; translated: string } | null>(null);
   const [showCameraLanguagePicker, setShowCameraLanguagePicker] = useState(false);
   const [showCameraSourcePicker, setShowCameraSourcePicker] = useState(false);
+
+  const { generateResponseWithImage, isReady: aiReady, initializeModel } = useChatAIContext();
+  const { isModelDownloaded } = useDownloadManager();
 
   // Conversation State
   const [allMessages, setAllMessages] = useState<Message[]>([]);
@@ -96,14 +99,10 @@ export default function TranslateScreen() {
     requestPermissions();
   }, []);
 
-  // Clear live translation timer when leaving camera mode
+  // Clear camera result when leaving camera mode
   useEffect(() => {
     if (mode !== 'camera') {
-      if (clearTranslationTimer.current) {
-        clearTimeout(clearTranslationTimer.current);
-        clearTranslationTimer.current = null;
-      }
-      setLiveTranslation('');
+      setCameraResult(null);
     }
   }, [mode]);
 
@@ -184,7 +183,58 @@ export default function TranslateScreen() {
   };
 
   // Camera Functions
+  async function captureAndTranslate() {
+    if (!cameraRef.current) return;
+
+    if (!isModelDownloaded('chat')) {
+      Alert.alert(
+        'AI Model Required',
+        'Download the AI model to use camera translation.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    setIsCameraCapturing(true);
+    setCameraResult(null);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      if (!photo) return;
+
+      const imageUri = photo.uri.startsWith('file://') ? photo.uri : `file://${photo.uri}`;
+
+      if (!aiReady) await initializeModel();
+
+      const extracted = await generateResponseWithImage(
+        imageUri,
+        'Extract all text visible in this image. Output only the extracted text, preserving line breaks. Do not add any commentary.'
+      );
+
+      const extractedText = extracted.trim();
+      if (!extractedText) {
+        Alert.alert('No Text', 'No text was found in the captured image.');
+        return;
+      }
+
+      const translated = await translate(extractedText, sourceLanguage.code, targetLanguage.code);
+      setCameraResult({ original: extractedText, translated });
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to process image');
+    } finally {
+      setIsCameraCapturing(false);
+    }
+  }
+
   async function pickImageAndTranslate() {
+    if (!isModelDownloaded('chat')) {
+      Alert.alert(
+        'AI Model Required',
+        'Download the AI model to use image translation.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -195,19 +245,23 @@ export default function TranslateScreen() {
       setIsPickerTranslating(true);
       setPickerResult(null);
       try {
-        const ocrResult = await PhotoRecognizer({ uri: result.assets[0].uri });
-        const extractedText = ocrResult.resultText?.trim() || '';
+        const uri = result.assets[0].uri;
+        const imageUri = uri.startsWith('file://') ? uri : `file://${uri}`;
 
+        if (!aiReady) await initializeModel();
+
+        const extracted = await generateResponseWithImage(
+          imageUri,
+          'Extract all text visible in this image. Output only the extracted text, preserving line breaks. Do not add any commentary.'
+        );
+
+        const extractedText = extracted.trim();
         if (!extractedText) {
           Alert.alert('No Text', 'No text was found in the selected image.');
           return;
         }
 
-        const translated = await translate(
-          extractedText,
-          sourceLanguage.code,
-          targetLanguage.code,
-        );
+        const translated = await translate(extractedText, sourceLanguage.code, targetLanguage.code);
         setPickerResult({ original: extractedText, translated });
       } catch (err) {
         Alert.alert('Error', err instanceof Error ? err.message : 'Failed to process image');
@@ -502,26 +556,26 @@ export default function TranslateScreen() {
     );
   };
 
-  // Render Camera Mode — live real-time translation with react-native-vision-camera
+  // Render Camera Mode — expo-camera with capture-to-translate
   const renderCameraMode = () => {
-    if (!hasCameraPermission) {
+    if (!cameraPermission) {
       return (
         <ThemedView style={[styles.container, styles.centerContent]}>
-          <ThemedText style={styles.message}>Camera permission is required for live translation</ThemedText>
-          <TouchableOpacity 
-            style={[styles.button, { backgroundColor: colors.tint }]} 
-            onPress={requestCameraPermission}
-          >
-            <ThemedText style={styles.buttonText}>Grant Permission</ThemedText>
-          </TouchableOpacity>
+          <ActivityIndicator size="large" color={colors.tint} />
         </ThemedView>
       );
     }
 
-    if (!cameraDevice) {
+    if (!cameraPermission.granted) {
       return (
         <ThemedView style={[styles.container, styles.centerContent]}>
-          <ThemedText style={styles.message}>No camera device found</ThemedText>
+          <ThemedText style={styles.message}>Camera permission is required for photo translation</ThemedText>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.tint }]}
+            onPress={requestCameraPermission}
+          >
+            <ThemedText style={styles.buttonText}>Grant Permission</ThemedText>
+          </TouchableOpacity>
         </ThemedView>
       );
     }
@@ -539,8 +593,8 @@ export default function TranslateScreen() {
               <ThemedText type="subtitle" style={styles.sectionTitle}>Translation ({targetLanguage.name}):</ThemedText>
               <ThemedText style={styles.cameraTranslatedText}>{pickerResult.translated}</ThemedText>
             </ThemedView>
-            <TouchableOpacity 
-              style={[styles.button, { backgroundColor: colors.tint }]} 
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.tint }]}
               onPress={() => setPickerResult(null)}
             >
               <IconSymbol size={24} name="camera.fill" color="#fff" />
@@ -551,32 +605,38 @@ export default function TranslateScreen() {
       );
     }
 
+    // Show capture result overlay
+    if (cameraResult) {
+      return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <ScrollView style={styles.pageContainer}>
+            <ThemedView style={styles.textSection}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>Original Text:</ThemedText>
+              <ThemedText style={styles.extractedText}>{cameraResult.original}</ThemedText>
+            </ThemedView>
+            <ThemedView style={styles.textSection}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>Translation ({targetLanguage.name}):</ThemedText>
+              <ThemedText style={styles.cameraTranslatedText}>{cameraResult.translated}</ThemedText>
+            </ThemedView>
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.tint }]}
+              onPress={() => setCameraResult(null)}
+            >
+              <IconSymbol size={24} name="camera.fill" color="#fff" />
+              <ThemedText style={styles.buttonText}>Take Another Photo</ThemedText>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.container}>
-        <MLKitCamera
+        <CameraView
+          ref={cameraRef}
           style={StyleSheet.absoluteFill}
-          device={cameraDevice}
-          isActive={mode === 'camera'}
-          mode="translate"
-          options={{ from: sourceLanguage.code as any, to: targetLanguage.code as any }}
-          callback={(result) => {
-            if (typeof result === 'string' && result.trim()) {
-              // Cancel any pending clear — new text detected
-              if (clearTranslationTimer.current) {
-                clearTimeout(clearTranslationTimer.current);
-                clearTranslationTimer.current = null;
-              }
-              setLiveTranslation(result);
-            } else {
-              // No text in frame — clear after a short delay to avoid flashing
-              if (!clearTranslationTimer.current) {
-                clearTranslationTimer.current = setTimeout(() => {
-                  setLiveTranslation('');
-                  clearTranslationTimer.current = null;
-                }, 1200);
-              }
-            }
-          }}
+          facing="back"
+          active={mode === 'camera'}
         />
 
         {/* Language selectors overlay */}
@@ -609,12 +669,19 @@ export default function TranslateScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Live translation overlay */}
-        {liveTranslation ? (
-          <View style={styles.liveTranslationOverlay}>
-            <ThemedText style={styles.liveTranslationText}>{liveTranslation}</ThemedText>
-          </View>
-        ) : null}
+        {/* Capture button */}
+        <View style={styles.captureButtonContainer}>
+          <TouchableOpacity
+            style={[styles.captureButton, { backgroundColor: colors.tint, opacity: isCameraCapturing ? 0.6 : 1 }]}
+            onPress={captureAndTranslate}
+            disabled={isCameraCapturing}>
+            {isCameraCapturing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <IconSymbol name="camera.fill" size={28} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
 
         <LanguagePicker
           visible={showCameraSourcePicker}
@@ -951,20 +1018,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  liveTranslationOverlay: {
+  captureButtonContainer: {
     position: 'absolute',
     bottom: 40,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    borderRadius: 12,
-    padding: 16,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
-  liveTranslationText: {
-    color: '#fff',
-    fontSize: 18,
-    lineHeight: 26,
-    textAlign: 'center',
+  captureButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
   pageContainer: {
     flex: 1,

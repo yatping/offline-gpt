@@ -14,6 +14,7 @@ type DownloadManagerContextType = {
   chatModel: ModelDownloadState;
   downloadModel: (type: ModelType) => Promise<void>;
   cancelDownload: (type: ModelType) => void;
+  resetDownload: (type: ModelType) => void;
   isModelDownloaded: (type: ModelType) => boolean;
   showPrompt: boolean;
   dismissPrompt: () => void;
@@ -22,8 +23,14 @@ type DownloadManagerContextType = {
 
 const MODEL_CONFIGS = {
   chat: {
-    url: 'https://offlinegpt-assets.orangolabs.com/llama-3.2-1b-instruct-q8_0.gguf',
-    filename: 'llama-3.2-1b-instruct-q8_0.gguf',
+    model: {
+      url: 'https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/LFM2.5-VL-1.6B-Q8_0.gguf',
+      filename: 'LFM2.5-VL-1.6B-Q8_0.gguf',
+    },
+    mmproj: {
+      url: 'https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/mmproj-LFM2.5-VL-1.6b-Q8_0.gguf',
+      filename: 'mmproj-LFM2.5-VL-1.6b-Q8_0.gguf',
+    },
   },
 };
 
@@ -40,78 +47,126 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
 
   const downloadResumablesRef = useRef<{
     chat: FileSystem.DownloadResumable | null;
+    chatMmproj: FileSystem.DownloadResumable | null;
   }>({
     chat: null,
+    chatMmproj: null,
   });
 
   const isModelDownloaded = (type: ModelType): boolean => {
     const config = MODEL_CONFIGS[type];
-    const modelFile = new File(Paths.document, config.filename);
-    return modelFile.exists;
+    const modelFile = new File(Paths.document, config.model.filename);
+    const mmprojFile = new File(Paths.document, config.mmproj.filename);
+    return modelFile.exists && mmprojFile.exists;
   };
 
   const downloadModel = async (type: ModelType) => {
     const config = MODEL_CONFIGS[type];
 
-    // Check if already downloaded
     if (isModelDownloaded(type)) {
       setChatModel({ status: 'completed', progress: 100, error: null });
       return;
     }
 
-    // Check if already downloading
     if (chatModel.status === 'downloading') {
       console.log(`${type} model already downloading, skipping...`);
       return;
     }
 
+    // Track which file is actively downloading for targeted cleanup on error
+    let downloadingFile: 'model' | 'mmproj' = 'model';
+
     try {
       setChatModel({ status: 'downloading', progress: 0, error: null });
 
-      const downloadPath = `${FileSystem.documentDirectory}${config.filename}`;
+      // Download main model (counts as 0–80% of progress)
+      const modelPath = `${FileSystem.documentDirectory}${config.model.filename}`;
+      const modelFile = new File(Paths.document, config.model.filename);
 
-      const downloadResumable = FileSystem.createDownloadResumable(
-        config.url,
-        downloadPath,
-        {},
-        (downloadProgress) => {
-          const progress =
-            downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
-          const percentage = Math.round(progress * 100);
-          setChatModel((prev) => ({ ...prev, progress: percentage }));
-          console.log(`${type} model download progress: ${percentage}%`);
+      if (!modelFile.exists) {
+        const modelResumable = FileSystem.createDownloadResumable(
+          config.model.url,
+          modelPath,
+          {},
+          (downloadProgress) => {
+            const progress =
+              downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
+            const percentage = Math.round(progress * 80); // 0–80%
+            setChatModel((prev) => ({ ...prev, progress: percentage }));
+          }
+        );
+        downloadResumablesRef.current[type] = modelResumable;
+        const modelResult = await modelResumable.downloadAsync();
+        downloadResumablesRef.current[type] = null;
+
+        if (!modelResult) {
+          // Clean up any partial file before returning
+          const partialModel = new File(Paths.document, config.model.filename);
+          try { if (partialModel.exists) partialModel.delete(); } catch {}
+          setChatModel({ status: 'idle', progress: 0, error: null });
+          return;
         }
-      );
+      }
 
-      downloadResumablesRef.current[type] = downloadResumable;
+      setChatModel((prev) => ({ ...prev, progress: 80 }));
+      downloadingFile = 'mmproj';
 
-      const result = await downloadResumable.downloadAsync();
+      // Download mmproj (counts as 80–100% of progress)
+      const mmprojPath = `${FileSystem.documentDirectory}${config.mmproj.filename}`;
+      const mmprojFile = new File(Paths.document, config.mmproj.filename);
 
-      downloadResumablesRef.current[type] = null;
+      if (!mmprojFile.exists) {
+        const mmprojResumable = FileSystem.createDownloadResumable(
+          config.mmproj.url,
+          mmprojPath,
+          {},
+          (downloadProgress) => {
+            const progress =
+              downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
+            const percentage = 80 + Math.round(progress * 20); // 80–100%
+            setChatModel((prev) => ({ ...prev, progress: percentage }));
+          }
+        );
+        downloadResumablesRef.current.chatMmproj = mmprojResumable;
+        const mmprojResult = await mmprojResumable.downloadAsync();
+        downloadResumablesRef.current.chatMmproj = null;
 
-      if (!result) {
-        console.log(`${type} model download cancelled`);
-        setChatModel({ status: 'idle', progress: 0, error: null });
-        return;
+        if (!mmprojResult) {
+          // Clean up partial mmproj file before returning
+          const partialMmproj = new File(Paths.document, config.mmproj.filename);
+          try { if (partialMmproj.exists) partialMmproj.delete(); } catch {}
+          setChatModel({ status: 'idle', progress: 0, error: null });
+          return;
+        }
       }
 
       setChatModel({ status: 'completed', progress: 100, error: null });
-      console.log(`${type} model downloaded successfully to:`, result.uri);
+      console.log(`${type} model + mmproj downloaded successfully`);
     } catch (err) {
       downloadResumablesRef.current[type] = null;
+      downloadResumablesRef.current.chatMmproj = null;
+
+      // Only delete the partial file that was actively downloading
+      const partialModel = new File(Paths.document, config.model.filename);
+      const partialMmproj = new File(Paths.document, config.mmproj.filename);
+      const deletePartial = () => {
+        if (downloadingFile === 'model') {
+          try { if (partialModel.exists) partialModel.delete(); } catch {}
+        } else {
+          try { if (partialMmproj.exists) partialMmproj.delete(); } catch {}
+        }
+      };
 
       if (err instanceof Error && err.message.includes('cancelled')) {
-        console.log(`${type} model download was cancelled`);
+        deletePartial();
         setChatModel({ status: 'idle', progress: 0, error: null });
         return;
       }
 
-      // Check if file exists despite error
-      const recheckFile = new File(Paths.document, MODEL_CONFIGS[type].filename);
-      if (recheckFile.exists) {
-        console.log(`${type} model file exists despite error, marking as completed`);
+      if (isModelDownloaded(type)) {
         setChatModel({ status: 'completed', progress: 100, error: null });
       } else {
+        deletePartial();
         console.error(`${type} model download failed:`, err);
         setChatModel({
           status: 'error',
@@ -122,14 +177,30 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
     }
   };
 
+  // Resets download state to idle without deleting files.
+  // Call this after deleting a specific bad file so the user can re-download.
+  const resetDownload = (_type: ModelType) => {
+    setChatModel({ status: 'idle', progress: 0, error: null });
+  };
+
   const cancelDownload = (type: ModelType) => {
+    const config = MODEL_CONFIGS[type];
     const downloadResumable = downloadResumablesRef.current[type];
     if (downloadResumable) {
       console.log(`Cancelling ${type} model download...`);
       downloadResumable.pauseAsync().catch(() => {});
       downloadResumablesRef.current[type] = null;
-      setChatModel({ status: 'idle', progress: 0, error: null });
     }
+    if (downloadResumablesRef.current.chatMmproj) {
+      downloadResumablesRef.current.chatMmproj.pauseAsync().catch(() => {});
+      downloadResumablesRef.current.chatMmproj = null;
+      // Partial mmproj — delete synchronously before state update to close race window
+      try { new File(Paths.document, config.mmproj.filename).delete(); } catch {}
+    } else {
+      // Still in model-download phase; partial model may exist
+      try { new File(Paths.document, config.model.filename).delete(); } catch {}
+    }
+    setChatModel({ status: 'idle', progress: 0, error: null });
   };
 
   // Check initial state of models
@@ -148,6 +219,9 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
       if (downloadResumablesRef.current.chat) {
         downloadResumablesRef.current.chat.pauseAsync().catch(() => {});
       }
+      if (downloadResumablesRef.current.chatMmproj) {
+        downloadResumablesRef.current.chatMmproj.pauseAsync().catch(() => {});
+      }
     };
   }, []);
 
@@ -164,6 +238,7 @@ export function DownloadManagerProvider({ children }: { children: React.ReactNod
         chatModel,
         downloadModel,
         cancelDownload,
+        resetDownload,
         isModelDownloaded,
         showPrompt,
         dismissPrompt,

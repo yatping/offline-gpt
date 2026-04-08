@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TextRecognition, { TextRecognitionScript } from '@react-native-ml-kit/text-recognition';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -47,92 +46,14 @@ interface MenuCategory {
   items: ParsedMenuItem[];
 }
 
-const PRICE_REGEX = /^[$¥€£₩₹฿]?\s*[\d,]+\.?\d*\s*[$¥€£₩₹฿]?$/;
-const NOISE_REGEX = /^[\d\s\-–—|/\\.,;:!?@#%^&*()[\]{}<>+=_~`'"]+$/;
-// Opening hours like "07:00–22:00", "9am-10pm", "07.00am - 10.00pm"
-const HOURS_REGEX = /\b\d{1,2}[:.]\d{2}\s*(am|pm)?\s*[-–—]\s*\d{1,2}[:.]\d{2}\s*(am|pm)?\b/i;
-// URLs and social handles
-const URL_REGEX = /(@|www\.|\.com|\.net|\.org|http)/i;
 
-/** Pick ML Kit OCR script based on source language code */
-function getOCRScript(langCode: string): TextRecognitionScript {
-  switch (langCode) {
-    case 'zh': return TextRecognitionScript.CHINESE;
-    case 'ja': return TextRecognitionScript.JAPANESE;
-    case 'ko': return TextRecognitionScript.KOREAN;
-    case 'hi': case 'mr': case 'ne': return TextRecognitionScript.DEVANAGARI;
-    default: return TextRecognitionScript.LATIN;
-  }
-}
 
-/** Parse raw OCR text into flat item candidates */
-function extractRawItems(rawText: string): { original: string }[] {
-  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const items: { original: string }[] = [];
 
-  for (const line of lines) {
-    if (line.length < 2) continue;
-    if (NOISE_REGEX.test(line)) continue;
-    if (/^\d+$/.test(line)) continue;
-    if (HOURS_REGEX.test(line)) continue;
-    if (URL_REGEX.test(line)) continue;
-    if (PRICE_REGEX.test(line) && items.length > 0) continue;
-
-    items.push({ original: line });
-  }
-
-  return items.slice(0, 50); // cap at 50 items for context window
-}
-
-/** Use Llama to filter noise, identify categories, and group items */
-async function categorizeWithAI(
-  items: ParsedMenuItem[],
-  generateResponse: (msgs: { role: 'user' | 'assistant' | 'system'; content: string }[], cb?: (p: string) => void) => Promise<string>
-): Promise<MenuCategory[]> {
-  if (items.length === 0) return [];
-
-  // Only send the english text to AI
-  const itemList = items.map((item, i) => `[${i}] ${item.english}`).join('\n');
-
-  // Very explicit prompt for small model (Llama 1B) — short, no ambiguity
-  const prompt =
-    `Menu items:\n${itemList}\n\nGroup food/drink items into categories. Skip noise (hours, addresses, titles like "Menu").\nOutput ONLY a JSON object where keys are category names and values are arrays of item numbers.\nDo NOT copy item text. Use ONLY numbers in arrays.\nOutput: {"Category":[numbers],...}\n{`;
-
-  try {
-    // Prepend the opening brace we used as prompt suffix
-    const raw = await generateResponse([{ role: 'user', content: prompt }]);
-    // The model may or may not repeat the leading `{`
-    const fullJson = raw.trimStart().startsWith('{') ? raw : '{' + raw;
-    const jsonMatch = fullJson.match(/\{[\s\S]*?\}/);
-    if (!jsonMatch) throw new Error('no JSON');
-
-    const categoryMap = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-
-    const categories: MenuCategory[] = [];
-    for (const [name, value] of Object.entries(categoryMap)) {
-      if (!Array.isArray(value)) continue;
-      // Accept only entries where values are numbers (not strings)
-      const indices = value.filter((v): v is number => typeof v === 'number' && v >= 0 && v < items.length);
-      if (indices.length === 0) continue;
-      categories.push({ name, items: indices.map((i) => ({ ...items[i] })) });
-    }
-
-    if (categories.length === 0) throw new Error('empty');
-    return categories;
-  } catch {
-    // Fallback: single category, basic noise filtering
-    const fallback = items.filter(
-      (item) => !HOURS_REGEX.test(item.english) && !URL_REGEX.test(item.english)
-    );
-    return [{ name: 'Menu', items: fallback.length > 0 ? fallback : items }];
-  }
-}
 
 const PROCESSING_STEPS = [
-  'Scanning menu text…',
-  'Recognizing items…',
+  'Analyzing menu image…',
+  'Extracting menu items…',
   'Translating content…',
-  'Categorizing with AI…',
   'Almost ready!',
 ];
 
@@ -155,7 +76,7 @@ export default function MenuScreen() {
   const [showMyLangPicker, setShowMyLangPicker] = useState(false);
 
   const { isModelDownloaded, downloadModel } = useDownloadManager();
-  const { generateResponse, isReady: aiReady, initializeModel } = useChatAIContext();
+  const { generateResponseWithImage, isReady: aiReady, initializeModel } = useChatAIContext();
 
   const [step, setStep] = useState<MenuStep>('capture');
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -219,7 +140,7 @@ export default function MenuScreen() {
       if (!isModelDownloaded('chat')) {
         Alert.alert(
           'AI Model Required',
-          'Download the AI model (~1.3 GB) to enable menu scanning. You only need to do this once.',
+          'Download the AI model (~1.5 GB) to enable menu scanning. You only need to do this once.',
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Download', onPress: () => downloadModel('chat') },
@@ -258,90 +179,83 @@ export default function MenuScreen() {
         setProcessingMsg(PROCESSING_STEPS[0]);
 
         const uri = result.assets[0].uri;
+        const imageUri = uri.startsWith('file://') ? uri : `file://${uri}`;
 
-        // Step 1: OCR — menuLang determines the script
+        // Step 1: Ensure VL model is initialized
         setProcessingMsg(PROCESSING_STEPS[1]);
-        const ocrResult = await TextRecognition.recognize(uri, getOCRScript(menuLang.code));
+        if (!aiReady) await initializeModel();
 
-        // Use block→line structure so each text line is a separate string (avoids column merging)
-        const ocrLines: string[] = [];
-        for (const block of ocrResult.blocks ?? []) {
-          for (const line of block.lines ?? []) {
-            const t = line.text?.trim();
-            if (t) ocrLines.push(t);
+        // Step 2: Use vision model to extract and categorize menu items in one shot
+        const vlPrompt =
+          `You are a menu reader. Analyze this menu image and extract all food and drink items.\n` +
+          `Return ONLY valid JSON in this exact format:\n` +
+          `{"categories":[{"name":"Category Name","items":[{"name":"Item name","price":"price or null"}]}]}\n` +
+          `Rules:\n` +
+          `- Skip noise (addresses, hours, website URLs, decorative text)\n` +
+          `- Group items under logical category names (e.g. Appetizers, Main Dishes, Drinks)\n` +
+          `- Use "Menu" as category name if categories are unclear\n` +
+          `- Output ONLY the JSON object, no other text`;
+
+        const vlResponse = await generateResponseWithImage(imageUri, vlPrompt);
+
+        // Parse VL model JSON response
+        let parsedCategories: { name: string; items: { name: string; price?: string | null }[] }[] = [];
+        try {
+          const jsonMatch = vlResponse.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) throw new Error('no JSON');
+          const parsed = JSON.parse(jsonMatch[0]) as { categories?: unknown };
+          if (Array.isArray(parsed.categories)) {
+            parsedCategories = parsed.categories as typeof parsedCategories;
           }
-        }
-        // Fallback: split the full text if blocks had no lines
-        if (ocrLines.length === 0) {
-          ocrLines.push(...(ocrResult.text ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean));
+        } catch {
+          // Fallback: treat response lines as a single "Menu" category
+          const lines = vlResponse.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 2);
+          parsedCategories = [{ name: 'Menu', items: lines.map((l) => ({ name: l })) }];
         }
 
-        if (ocrLines.length === 0) {
+        if (parsedCategories.length === 0 || parsedCategories.every((c) => c.items.length === 0)) {
           setStep('capture');
-          Alert.alert('No Text Found', 'Could not detect any text in the image. Try a clearer, well-lit photo.');
+          Alert.alert('No Menu Items', 'Could not identify menu items. Try a clearer, well-lit photo of the menu.');
           return;
         }
 
-        // Step 2: Extract raw item candidates
-        const rawItems = extractRawItems(ocrLines.join('\n'));
-        if (rawItems.length === 0) {
-          setStep('capture');
-          Alert.alert('No Menu Items', 'Could not identify menu items. Try a clearer photo of the menu.');
-          return;
-        }
-
-        // Step 3: Translate menu items — to English (for AI) and to myLang (for display)
+        // Step 3: Translate item names for display
         setProcessingMsg(PROCESSING_STEPS[2]);
-        const menuIsEnglish = menuLang.code === 'en';
-        const myLangIsEnglish = myLang.code === 'en';
         const sameLanguage = menuLang.code === myLang.code;
 
-        // English labels — used by AI categorizer (always more accurate in English)
-        const englishTexts: string[] = [];
-        for (const item of rawItems) {
-          if (menuIsEnglish) {
-            englishTexts.push(item.original);
-          } else {
-            try {
-              const en = await translate(item.original, menuLang.code, 'en');
-              englishTexts.push(en?.trim() || item.original);
-            } catch {
-              englishTexts.push(item.original);
+        const menuResult: MenuCategory[] = [];
+        let itemIndex = 0;
+
+        for (const cat of parsedCategories) {
+          const translatedItems: ParsedMenuItem[] = [];
+          for (const item of cat.items) {
+            const originalName = item.name;
+            let translatedName = originalName;
+
+            if (!sameLanguage) {
+              try {
+                translatedName = await translate(originalName, menuLang.code, myLang.code);
+              } catch {
+                translatedName = originalName;
+              }
             }
+
+            translatedItems.push({
+              id: `item-${itemIndex++}`,
+              original: originalName,
+              english: originalName,
+              translated: translatedName,
+              price: item.price ?? undefined,
+              quantity: 0,
+            });
+          }
+          if (translatedItems.length > 0) {
+            menuResult.push({ name: cat.name, items: translatedItems });
           }
         }
 
-        // User's language labels — shown in menu browsing UI
-        const translatedTexts: string[] = [];
-        for (let i = 0; i < rawItems.length; i++) {
-          if (sameLanguage) {
-            translatedTexts.push(rawItems[i].original);
-          } else if (myLangIsEnglish) {
-            translatedTexts.push(englishTexts[i]); // reuse — no extra call needed
-          } else {
-            try {
-              const t = await translate(rawItems[i].original, menuLang.code, myLang.code);
-              translatedTexts.push(t?.trim() || rawItems[i].original);
-            } catch {
-              translatedTexts.push(rawItems[i].original);
-            }
-          }
-        }
-
-        const flatItems: ParsedMenuItem[] = rawItems.map((r, i) => ({
-          id: `item-${i}`,
-          original: r.original,
-          english: englishTexts[i],
-          translated: translatedTexts[i],
-          quantity: 0,
-        }));
-
-        // Step 4: AI categorization
         setProcessingMsg(PROCESSING_STEPS[3]);
-        if (!aiReady) await initializeModel();
-        const parsed = await categorizeWithAI(flatItems, generateResponse);
-
-        setCategories(parsed);
+        setCategories(menuResult);
         setStep('menu');
       } catch (err) {
         setStep('capture');
@@ -352,7 +266,7 @@ export default function MenuScreen() {
       isModelDownloaded, downloadModel, translate,
       menuLang.code, myLang.code,
       showNewBadge, dismissNewBadge,
-      aiReady, initializeModel, generateResponse,
+      aiReady, initializeModel, generateResponseWithImage,
     ]
   );
 
