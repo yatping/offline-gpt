@@ -1,5 +1,5 @@
-import * as Clipboard from 'expo-clipboard';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ExpoSpeechRecognitionModule,
@@ -648,7 +648,9 @@ export default function TranslateScreen() {
             <IconSymbol name="chevron.down" size={12} color="#fff" />
           </TouchableOpacity>
 
-          <IconSymbol name="arrow.right" size={16} color="#fff" />
+          <TouchableOpacity onPress={swapLanguages}>
+            <IconSymbol name="arrow.right" size={16} color="#fff" />
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.cameraLangButton, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
