@@ -91,33 +91,38 @@ async function categorizeWithAI(
 ): Promise<MenuCategory[]> {
   if (items.length === 0) return [];
 
-  const itemList = items.map((item, i) => `${i}:${item.english}`).join('\n');
+  // Only send the english text to AI
+  const itemList = items.map((item, i) => `[${i}] ${item.english}`).join('\n');
 
+  // Very explicit prompt for small model (Llama 1B) — short, no ambiguity
   const prompt =
-    `Restaurant menu lines (index:text):\n${itemList}\n\nRules:\n1. SKIP noise: restaurant names, addresses, URLs, opening hours, page titles\n2. Lines that are section headers (like "Coffee Classics","Iced Coffee","Desserts") → use as category name, NOT as items\n3. Only include actual food/drink items under a category\n\nReturn ONLY JSON mapping category names to item index arrays.\nExample: {"Coffee":[5,6,7],"Tea":[11,12]}\nJSON:`;
+    `Menu items:\n${itemList}\n\nGroup food/drink items into categories. Skip noise (hours, addresses, titles like "Menu").\nOutput ONLY a JSON object where keys are category names and values are arrays of item numbers.\nDo NOT copy item text. Use ONLY numbers in arrays.\nOutput: {"Category":[numbers],...}\n{`;
 
   try {
-    const response = await generateResponse([{ role: 'user', content: prompt }]);
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    // Prepend the opening brace we used as prompt suffix
+    const raw = await generateResponse([{ role: 'user', content: prompt }]);
+    // The model may or may not repeat the leading `{`
+    const fullJson = raw.trimStart().startsWith('{') ? raw : '{' + raw;
+    const jsonMatch = fullJson.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) throw new Error('no JSON');
 
-    const categoryMap = JSON.parse(jsonMatch[0]) as Record<string, number[]>;
-    const categories: MenuCategory[] = Object.entries(categoryMap)
-      .filter(([, indices]) => Array.isArray(indices) && indices.length > 0)
-      .map(([name, indices]) => ({
-        name,
-        items: indices
-          .filter((i) => i >= 0 && i < items.length)
-          .map((i) => ({ ...items[i] })),
-      }))
-      .filter((cat) => cat.items.length > 0);
+    const categoryMap = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+
+    const categories: MenuCategory[] = [];
+    for (const [name, value] of Object.entries(categoryMap)) {
+      if (!Array.isArray(value)) continue;
+      // Accept only entries where values are numbers (not strings)
+      const indices = value.filter((v): v is number => typeof v === 'number' && v >= 0 && v < items.length);
+      if (indices.length === 0) continue;
+      categories.push({ name, items: indices.map((i) => ({ ...items[i] })) });
+    }
 
     if (categories.length === 0) throw new Error('empty');
     return categories;
   } catch {
     // Fallback: single category, basic noise filtering
     const fallback = items.filter(
-      (item) => !HOURS_REGEX.test(item.translated) && !URL_REGEX.test(item.translated)
+      (item) => !HOURS_REGEX.test(item.english) && !URL_REGEX.test(item.english)
     );
     return [{ name: 'Menu', items: fallback.length > 0 ? fallback : items }];
   }
@@ -137,8 +142,15 @@ export default function MenuScreen() {
   const bannerVisible = useBannerVisible();
   const isDark = colorScheme === 'dark';
 
-  const { translate, sourceLanguage, targetLanguage, setSourceLanguage, setTargetLanguage } =
+  const { translate, sourceLanguage, targetLanguage } =
     useTranslationContext();
+
+  // Menu scan uses its own direction: menuLang = the menu's language, myLang = user's language.
+  // This is intentionally the REVERSE of the Translate tab (which is "my language → foreign").
+  const [menuLang, setMenuLang] = useState(() => targetLanguage);
+  const [myLang, setMyLang] = useState(() => sourceLanguage);
+  const [showMenuLangPicker, setShowMenuLangPicker] = useState(false);
+  const [showMyLangPicker, setShowMyLangPicker] = useState(false);
 
   const { isModelDownloaded, downloadModel } = useDownloadManager();
   const { generateResponse, isReady: aiReady, initializeModel } = useChatAIContext();
@@ -146,8 +158,6 @@ export default function MenuScreen() {
   const [step, setStep] = useState<MenuStep>('capture');
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [processingMsg, setProcessingMsg] = useState(PROCESSING_STEPS[0]);
-  const [showSourcePicker, setShowSourcePicker] = useState(false);
-  const [showTargetPicker, setShowTargetPicker] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showNewBadge, setShowNewBadge] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -247,9 +257,9 @@ export default function MenuScreen() {
 
         const uri = result.assets[0].uri;
 
-        // Step 1: OCR — extract individual lines from blocks (handles multi-column layouts)
+        // Step 1: OCR — menuLang determines the script
         setProcessingMsg(PROCESSING_STEPS[1]);
-        const ocrResult = await TextRecognition.recognize(uri, getOCRScript(sourceLanguage.code));
+        const ocrResult = await TextRecognition.recognize(uri, getOCRScript(menuLang.code));
 
         // Use block→line structure so each text line is a separate string (avoids column merging)
         const ocrLines: string[] = [];
@@ -278,20 +288,20 @@ export default function MenuScreen() {
           return;
         }
 
-        // Step 3: Translate each item — first to English (for AI), then to target language (for display)
+        // Step 3: Translate menu items — to English (for AI) and to myLang (for display)
         setProcessingMsg(PROCESSING_STEPS[2]);
-        const sourceIsEnglish = sourceLanguage.code === 'en';
-        const targetIsEnglish = targetLanguage.code === 'en';
-        const sameLanguage = sourceLanguage.code === targetLanguage.code;
+        const menuIsEnglish = menuLang.code === 'en';
+        const myLangIsEnglish = myLang.code === 'en';
+        const sameLanguage = menuLang.code === myLang.code;
 
-        // Build English labels (used by AI categorizer)
+        // English labels — used by AI categorizer (always more accurate in English)
         const englishTexts: string[] = [];
         for (const item of rawItems) {
-          if (sourceIsEnglish) {
+          if (menuIsEnglish) {
             englishTexts.push(item.original);
           } else {
             try {
-              const en = await translate(item.original, sourceLanguage.code, 'en');
+              const en = await translate(item.original, menuLang.code, 'en');
               englishTexts.push(en?.trim() || item.original);
             } catch {
               englishTexts.push(item.original);
@@ -299,16 +309,16 @@ export default function MenuScreen() {
           }
         }
 
-        // Build target language labels (shown to user)
+        // User's language labels — shown in menu browsing UI
         const translatedTexts: string[] = [];
         for (let i = 0; i < rawItems.length; i++) {
           if (sameLanguage) {
             translatedTexts.push(rawItems[i].original);
-          } else if (targetIsEnglish) {
+          } else if (myLangIsEnglish) {
             translatedTexts.push(englishTexts[i]); // reuse — no extra call needed
           } else {
             try {
-              const t = await translate(rawItems[i].original, sourceLanguage.code, targetLanguage.code);
+              const t = await translate(rawItems[i].original, menuLang.code, myLang.code);
               translatedTexts.push(t?.trim() || rawItems[i].original);
             } catch {
               translatedTexts.push(rawItems[i].original);
@@ -324,12 +334,9 @@ export default function MenuScreen() {
           quantity: 0,
         }));
 
-        // Step 4: AI categorization (model already initialized globally)
+        // Step 4: AI categorization
         setProcessingMsg(PROCESSING_STEPS[3]);
-        if (!aiReady) {
-          // Model still loading — wait briefly then try
-          await initializeModel();
-        }
+        if (!aiReady) await initializeModel();
         const parsed = await categorizeWithAI(flatItems, generateResponse);
 
         setCategories(parsed);
@@ -341,7 +348,7 @@ export default function MenuScreen() {
     },
     [
       isModelDownloaded, downloadModel, translate,
-      sourceLanguage.code, targetLanguage.code,
+      menuLang.code, myLang.code,
       showNewBadge, dismissNewBadge,
       aiReady, initializeModel, generateResponse,
     ]
@@ -400,23 +407,28 @@ export default function MenuScreen() {
 
       {/* Language selector */}
       <ThemedView style={[styles.langCard, { borderColor: colors.icon + '30', backgroundColor: isDark ? '#1f2022' : '#fff' }]}>
-        <ThemedText style={[styles.langCardLabel, { color: colors.icon }]}>Translate from</ThemedText>
         <View style={styles.langRow}>
-          <TouchableOpacity
-            style={[styles.langChip, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]}
-            onPress={() => setShowSourcePicker(true)}>
-            <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{sourceLanguage.name}</ThemedText>
-            <IconSymbol name="chevron.down" size={14} color={colors.tint} />
-          </TouchableOpacity>
+          <View style={styles.langLabelCol}>
+            <ThemedText style={[styles.langDirectionLabel, { color: colors.icon }]}>Menu language</ThemedText>
+            <TouchableOpacity
+              style={[styles.langChip, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]}
+              onPress={() => setShowMenuLangPicker(true)}>
+              <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{menuLang.name}</ThemedText>
+              <IconSymbol name="chevron.down" size={14} color={colors.tint} />
+            </TouchableOpacity>
+          </View>
 
-          <IconSymbol name="arrow.right" size={18} color={colors.icon} />
+          <IconSymbol name="arrow.right" size={18} color={colors.icon} style={{ marginTop: 18 }} />
 
-          <TouchableOpacity
-            style={[styles.langChip, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]}
-            onPress={() => setShowTargetPicker(true)}>
-            <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{targetLanguage.name}</ThemedText>
-            <IconSymbol name="chevron.down" size={14} color={colors.tint} />
-          </TouchableOpacity>
+          <View style={styles.langLabelCol}>
+            <ThemedText style={[styles.langDirectionLabel, { color: colors.icon }]}>My language</ThemedText>
+            <TouchableOpacity
+              style={[styles.langChip, { borderColor: colors.tint, backgroundColor: colors.tint + '15' }]}
+              onPress={() => setShowMyLangPicker(true)}>
+              <ThemedText style={[styles.langChipText, { color: colors.tint }]}>{myLang.name}</ThemedText>
+              <IconSymbol name="chevron.down" size={14} color={colors.tint} />
+            </TouchableOpacity>
+          </View>
         </View>
       </ThemedView>
 
@@ -440,20 +452,20 @@ export default function MenuScreen() {
       </TouchableOpacity>
 
       <LanguagePicker
-        visible={showSourcePicker}
-        selectedLanguage={sourceLanguage}
+        visible={showMenuLangPicker}
+        selectedLanguage={menuLang}
         languages={LANGUAGES}
-        onSelect={setSourceLanguage}
-        onClose={() => setShowSourcePicker(false)}
-        onShowPaywall={() => { setShowSourcePicker(false); setShowPaywall(true); }}
+        onSelect={setMenuLang}
+        onClose={() => setShowMenuLangPicker(false)}
+        onShowPaywall={() => { setShowMenuLangPicker(false); setShowPaywall(true); }}
       />
       <LanguagePicker
-        visible={showTargetPicker}
-        selectedLanguage={targetLanguage}
+        visible={showMyLangPicker}
+        selectedLanguage={myLang}
         languages={LANGUAGES}
-        onSelect={setTargetLanguage}
-        onClose={() => setShowTargetPicker(false)}
-        onShowPaywall={() => { setShowTargetPicker(false); setShowPaywall(true); }}
+        onSelect={setMyLang}
+        onClose={() => setShowMyLangPicker(false)}
+        onShowPaywall={() => { setShowMyLangPicker(false); setShowPaywall(true); }}
       />
       <PremiumLanguagesPaywall
         visible={showPaywall}
@@ -487,10 +499,10 @@ export default function MenuScreen() {
           <IconSymbol name="chevron.left" size={22} color={colors.tint} />
         </TouchableOpacity>
         <ThemedText type="subtitle" style={styles.menuHeaderTitle}>
-          {targetLanguage.name} Menu
+          {myLang.name} Menu
         </ThemedText>
         <ThemedText style={[styles.menuHeaderSub, { color: colors.icon }]}>
-          {allItems.length} items · {sourceLanguage.name} → {targetLanguage.name}
+          {allItems.length} items · {menuLang.name} → {myLang.name}
         </ThemedText>
       </View>
 
@@ -540,8 +552,8 @@ export default function MenuScreen() {
       <OrderModal
         visible={showOrderModal}
         items={selectedItems}
-        sourceLanguage={sourceLanguage.name}
-        targetLanguage={targetLanguage.name}
+        sourceLanguage={menuLang.name}
+        targetLanguage={myLang.name}
         colors={colors}
         isDark={isDark}
         onClose={() => setShowOrderModal(false)}
@@ -777,20 +789,22 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
   },
-  langCardLabel: {
-    fontSize: 12,
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  langLabelCol: {
+    flex: 1,
+    gap: 6,
+  },
+  langDirectionLabel: {
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginBottom: 10,
-  },
-  langRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
   },
   langChip: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
