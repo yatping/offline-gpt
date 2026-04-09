@@ -419,7 +419,7 @@ export default function ChatScreen() {
                       <ThemedText
                         style={[
                           styles.messageText,
-                          message.role === 'user' && { color: '#fff' },
+                          message.role === 'user' && { color: onTint },
                         ]}>
                         {message.content}
                       </ThemedText>
