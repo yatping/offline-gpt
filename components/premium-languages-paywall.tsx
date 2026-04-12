@@ -2,12 +2,12 @@ import { ThemedText } from '@/components/themed-text';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getOriginalPrice } from '@/utils/pricing';
 import {
-  debugIAP,
-  getProducts,
-  hasPurchasedPremiumLanguages,
-  initializePurchases,
-  purchasePremiumLanguages,
-  restorePurchases,
+    debugIAP,
+    getProducts,
+    hasPurchasedPremiumLanguages,
+    initializePurchases,
+    purchasePremiumLanguages,
+    restorePurchases,
 } from '@/utils/purchase-manager';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
@@ -41,12 +41,11 @@ export function PremiumLanguagesPaywall({ visible, onClose, onPurchaseComplete }
       const products = await getProducts();
       if (products.length > 0) {
         const product = products[0];
-        setPrice(product.price || null);
+        setPrice(product.displayPrice || null);
         
         // Check if there's a promotional price
-        if (product.price) {
-          const currencyCode = (product as any).priceCurrencyCode;
-          const originalPrice = getOriginalPrice(product.price, currencyCode);
+        if (product.displayPrice) {
+          const originalPrice = getOriginalPrice(product.displayPrice, product.currency);
           setOriginalPrice(originalPrice);
         }
       } else {

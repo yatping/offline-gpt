@@ -1,5 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as InAppPurchases from 'expo-in-app-purchases';
+import type { Product, Purchase } from 'expo-iap';
+import {
+    ErrorCode,
+    endConnection,
+    fetchProducts,
+    finishTransaction,
+    getAvailablePurchases,
+    initConnection,
+    purchaseErrorListener,
+    purchaseUpdatedListener,
+    requestPurchase,
+} from 'expo-iap';
 import { LANGUAGES } from './language-preferences';
 
 const STORAGE_KEY = '@premium_languages_purchased';
@@ -13,29 +24,22 @@ const PRODUCT_ID = 'premium_languages_099'; // You'll configure this in App Stor
 export const debugIAP = async () => {
   console.log('=== IAP DEBUG INFO ===');
   console.log('Product ID:', PRODUCT_ID);
-  
+
   try {
-    const connected = await InAppPurchases.connectAsync();
+    const connected = await initConnection();
     console.log('IAP Connected:', connected);
   } catch (error: any) {
-    // Ignore "already connected" error
-    if (error?.message?.includes('Already connected')) {
+    if (error?.code === ErrorCode.AlreadyPrepared) {
       console.log('IAP Already connected (this is fine)');
     } else {
       console.error('Connection error:', error);
     }
   }
-  
+
   try {
-    const { results, responseCode } = await InAppPurchases.getProductsAsync([PRODUCT_ID]);
-    console.log('Response Code:', responseCode);
-    console.log('Response Code Values:', {
-      OK: InAppPurchases.IAPResponseCode.OK,
-      USER_CANCELED: InAppPurchases.IAPResponseCode.USER_CANCELED,
-      ERROR: InAppPurchases.IAPResponseCode.ERROR,
-    });
-    console.log('Products Found:', results?.length || 0);
-    console.log('Products:', JSON.stringify(results, null, 2));
+    const products = await fetchProducts({ skus: [PRODUCT_ID], type: 'in-app' });
+    console.log('Products Found:', products.length);
+    console.log('Products:', JSON.stringify(products, null, 2));
   } catch (error) {
     console.error('Products error:', error);
   }
@@ -79,10 +83,9 @@ export const canUseLanguage = async (languageCode: string): Promise<boolean> => 
 // Initialize IAP connection
 export const initializePurchases = async (): Promise<void> => {
   try {
-    await InAppPurchases.connectAsync();
+    await initConnection();
   } catch (error: any) {
-    // Ignore "already connected" error as it's harmless
-    if (!error?.message?.includes('Already connected')) {
+    if (error?.code !== ErrorCode.AlreadyPrepared) {
       console.error('Failed to initialize purchases:', error);
     }
   }
@@ -91,28 +94,21 @@ export const initializePurchases = async (): Promise<void> => {
 // Disconnect IAP
 export const disconnectPurchases = async (): Promise<void> => {
   try {
-    await InAppPurchases.disconnectAsync();
+    await endConnection();
   } catch (error) {
     console.error('Failed to disconnect purchases:', error);
   }
 };
 
 // Get available products
-export const getProducts = async (): Promise<InAppPurchases.IAPItemDetails[]> => {
+export const getProducts = async (): Promise<Product[]> => {
   try {
-    const { results, responseCode } = await InAppPurchases.getProductsAsync([PRODUCT_ID]);
-    console.log('Products response code:', responseCode);
-    console.log('Products found:', JSON.stringify(results, null, 2));
-    
-    if (responseCode === InAppPurchases.IAPResponseCode.OK && results) {
-      if (results.length === 0) {
-        console.warn('⚠️ No products found! Product ID might be wrong or product not ready yet.');
-      }
-      return results;
-    } else {
-      console.error('Failed to fetch products, response code:', responseCode);
-      return [];
+    const products = await fetchProducts({ skus: [PRODUCT_ID], type: 'in-app' });
+    console.log('Products found:', JSON.stringify(products, null, 2));
+    if (products.length === 0) {
+      console.warn('⚠️ No products found! Product ID might be wrong or product not ready yet.');
     }
+    return products;
   } catch (error) {
     console.error('Failed to get products:', error);
     return [];
@@ -121,51 +117,72 @@ export const getProducts = async (): Promise<InAppPurchases.IAPItemDetails[]> =>
 
 // Purchase premium languages
 export const purchasePremiumLanguages = async (): Promise<{ success: boolean; error?: string }> => {
-  try {
-    // MUST query products from store first before purchasing
-    console.log('Querying products before purchase...');
-    const products = await getProducts();
-    
-    if (products.length === 0) {
-      return { success: false, error: 'Product not available. Please try again later.' };
-    }
-    
-    console.log('Products loaded, attempting purchase...');
-    // purchaseItemAsync returns void and triggers the purchase flow
-    // Success/failure is handled through setPurchaseListener
-    await InAppPurchases.purchaseItemAsync(PRODUCT_ID);
-    
-    // If we reach here without throwing, the purchase was initiated successfully
-    // The actual purchase confirmation comes through the listener
-    await setPremiumLanguagesPurchased();
-    return { success: true };
-  } catch (error: any) {
-    console.error('Purchase error:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
-    
-    // Check if user cancelled
-    if (error?.message?.includes('cancel') || error?.code === 'USER_CANCELLED') {
-      return { success: false, error: 'Purchase was cancelled' };
-    }
-    
-    return { success: false, error: error?.message || 'Purchase failed' };
+  console.log('Querying products before purchase...');
+  const products = await getProducts();
+
+  if (products.length === 0) {
+    return { success: false, error: 'Product not available. Please try again later.' };
   }
+
+  console.log('Products loaded, attempting purchase...');
+
+  return new Promise((resolve) => {
+    const purchaseSub = purchaseUpdatedListener(async (purchase: Purchase) => {
+      if (purchase.productId === PRODUCT_ID) {
+        purchaseSub.remove();
+        errorSub.remove();
+        try {
+          await finishTransaction({ purchase, isConsumable: false });
+          await setPremiumLanguagesPurchased();
+          resolve({ success: true });
+        } catch (err: any) {
+          console.error('Failed to finish transaction:', err);
+          resolve({ success: false, error: err?.message || 'Failed to complete purchase' });
+        }
+      }
+    });
+
+    const errorSub = purchaseErrorListener((error: any) => {
+      if (error?.productId === PRODUCT_ID || !error?.productId) {
+        purchaseSub.remove();
+        errorSub.remove();
+        if (error?.code === ErrorCode.UserCancelled) {
+          resolve({ success: false, error: 'Purchase was cancelled' });
+        } else {
+          resolve({ success: false, error: error?.message || 'Purchase failed' });
+        }
+      }
+    });
+
+    requestPurchase({
+      request: {
+        apple: { sku: PRODUCT_ID },
+        google: { skus: [PRODUCT_ID] },
+      },
+      type: 'in-app',
+    }).catch((err: any) => {
+      purchaseSub.remove();
+      errorSub.remove();
+      console.error('requestPurchase error:', err);
+      if (err?.code === ErrorCode.UserCancelled) {
+        resolve({ success: false, error: 'Purchase was cancelled' });
+      } else {
+        resolve({ success: false, error: err?.message || 'Purchase failed' });
+      }
+    });
+  });
 };
 
 // Restore purchases
 export const restorePurchases = async (): Promise<boolean> => {
   try {
-    const { results } = await InAppPurchases.getPurchaseHistoryAsync({ useGooglePlayCache: false });
-    
-    if (results) {
-      const hasPremiumPurchase = results.some(
-        purchase => purchase.productId === PRODUCT_ID
-      );
-      
-      if (hasPremiumPurchase) {
-        await setPremiumLanguagesPurchased();
-        return true;
-      }
+    const purchases = await getAvailablePurchases();
+    const hasPremiumPurchase = purchases.some(
+      (purchase) => purchase.productId === PRODUCT_ID
+    );
+    if (hasPremiumPurchase) {
+      await setPremiumLanguagesPurchased();
+      return true;
     }
     return false;
   } catch (error) {
@@ -174,18 +191,15 @@ export const restorePurchases = async (): Promise<boolean> => {
   }
 };
 
-// Listen for purchase updates
+// Listen for purchase updates — returns a cleanup function
 export const setupPurchaseListener = (
-  onPurchaseUpdate: (purchase: InAppPurchases.InAppPurchase) => void
-) => {
-  InAppPurchases.setPurchaseListener((result: InAppPurchases.IAPQueryResponse<InAppPurchases.InAppPurchase>) => {
-    if (result.responseCode === InAppPurchases.IAPResponseCode.OK && result.results) {
-      result.results.forEach((purchase: InAppPurchases.InAppPurchase) => {
-        if (purchase.productId === PRODUCT_ID) {
-          setPremiumLanguagesPurchased();
-          onPurchaseUpdate(purchase);
-        }
-      });
+  onPurchaseUpdate: (purchase: Purchase) => void
+): (() => void) => {
+  const subscription = purchaseUpdatedListener((purchase: Purchase) => {
+    if (purchase.productId === PRODUCT_ID) {
+      setPremiumLanguagesPurchased();
+      onPurchaseUpdate(purchase);
     }
   });
+  return () => subscription.remove();
 };

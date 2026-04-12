@@ -46,6 +46,9 @@
         {
           "ios": {
             "deploymentTarget": "15.5"
+          },
+          "android": {
+            "kotlinVersion": "2.2.0"
           }
         }
       ],
@@ -61,7 +64,8 @@
           }
         }
       ],
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true,
